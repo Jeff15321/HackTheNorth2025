@@ -225,7 +225,7 @@ function SceneFrameImage({ apiBase, projectId, sceneId, fallbackUrl }: { apiBase
         } catch (e) {
           // ignore
         }
-      })(); // grrrr
+      })();
     }
   }, [apiBase, sceneId, fallbackUrl]);
 
