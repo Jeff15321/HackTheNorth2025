@@ -22,6 +22,9 @@ export default function Character4Page() {
   const activeCategory = songCategories.find((c) => c.id === activeCategoryId) || songCategories[0];
 
   useEffect(() => {
+    // Temporary: mark this page as completed on open until API is wired
+    // In the future, move this to run only after a successful API call.
+    useSceneStore.getState().setCompleted("character_4", true);
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();

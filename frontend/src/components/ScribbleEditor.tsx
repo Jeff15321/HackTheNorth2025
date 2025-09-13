@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Image as KImage, Line } from "react-konva";
 import { colors } from "@/styles/colors";
 
-export type ScribbleLine = { points: number[]; color: string; size: number; erase?: boolean };
+export type ScribbleLine = { points: number[]; color: string; size: number; erase?: boolean; tool?: "pencil" | "highlighter" | "eraser" };
 
 export default function ScribbleEditor({
   src,
@@ -27,7 +27,7 @@ export default function ScribbleEditor({
   const [isDrawing, setIsDrawing] = useState(false);
   const [internalLines, setInternalLines] = useState<ScribbleLine[]>([]);
   const [editing, setEditing] = useState(false);
-  const [erase, setErase] = useState(false);
+  const [tool, setTool] = useState<"pencil" | "highlighter" | "eraser">("pencil");
   const [color, setColor] = useState(brushColor);
   const [size, setSize] = useState(brushSize);
 
@@ -66,9 +66,21 @@ export default function ScribbleEditor({
 
   const handlePointerDown = (e: any) => {
     if (!editing) return;
+    const stage = e.target.getStage();
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
     setIsDrawing(true);
-    const pos = e.target.getStage().getPointerPosition();
-    updateLines((prev) => prev.concat([{ points: [pos.x, pos.y], color, size, erase }]));
+    updateLines((prev) =>
+      prev.concat([
+        {
+          points: [pos.x, pos.y],
+          color,
+          size,
+          erase: tool === "eraser",
+          tool: tool === "eraser" ? "eraser" : tool,
+        },
+      ])
+    );
   };
 
   const handlePointerMove = (e: any) => {
@@ -84,6 +96,8 @@ export default function ScribbleEditor({
   };
 
   const handlePointerUp = () => setIsDrawing(false);
+
+  // no text features
 
   const exportPNG = () => {
     const stage = stageRef.current;
@@ -117,20 +131,26 @@ export default function ScribbleEditor({
         </Layer>
 
         <Layer listening={editing}>
-          {internalLines.map((l, i) => (
-            <Line
-              key={i}
-              points={l.points}
-              stroke={l.color}
-              strokeWidth={l.size}
-              opacity={l.erase ? 1 : 0.5}
-              tension={0}
-              lineCap="round"
-              lineJoin="round"
-              globalCompositeOperation={l.erase ? "destination-out" : "source-over"}
-            />
-          ))}
+          {internalLines.map((l, i) => {
+            const isEraser = l.erase || l.tool === "eraser";
+            const isHighlighter = l.tool === "highlighter";
+            return (
+              <Line
+                key={i}
+                points={l.points}
+                stroke={l.color}
+                strokeWidth={l.size}
+                opacity={isEraser ? 1 : isHighlighter ? 0.5 : 1}
+                tension={0}
+                lineCap="round"
+                lineJoin="round"
+                globalCompositeOperation={isEraser ? "destination-out" : "source-over"}
+              />
+            );
+          })}
         </Layer>
+
+        {/* No text layer */}
       </Stage>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -141,7 +161,9 @@ export default function ScribbleEditor({
           {editing ? "Done" : "Edit"}
         </button>
         <button
-          onClick={() => updateLines(() => [])}
+          onClick={() => {
+            updateLines(() => []);
+          }}
           style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: colors.white }}
         >
           Clear
@@ -166,14 +188,20 @@ export default function ScribbleEditor({
           />
         </label>
         <button
-          onClick={() => setErase(false)}
-          style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: erase ? colors.white : "#f5f5f5" }}
+          onClick={() => setTool("pencil")}
+          style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: tool === "pencil" ? "#f5f5f5" : colors.white }}
         >
           Pencil
         </button>
         <button
-          onClick={() => setErase(true)}
-          style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: erase ? "#f5f5f5" : colors.white }}
+          onClick={() => setTool("highlighter")}
+          style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: tool === "highlighter" ? "#f5f5f5" : colors.white }}
+        >
+          Highlighter
+        </button>
+        <button
+          onClick={() => setTool("eraser")}
+          style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: tool === "eraser" ? "#f5f5f5" : colors.white }}
         >
           Eraser
         </button>

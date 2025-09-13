@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
 import { themeCharacter1, colors } from "@/styles/colors";
 import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
@@ -21,6 +21,12 @@ export default function Character3Page() {
   const [input, setInput] = useState("");
   const [version, setVersion] = useState(0);
   const current = entries[index] ?? entries[0];
+
+  useEffect(() => {
+    // Temporary: mark this page as completed on open until API is wired
+    // In the future, move this to run only after a successful API call.
+    useSceneStore.getState().setCompleted("character_3", true);
+  }, []);
 
   function goPrev() {
     setIndex((i) => {

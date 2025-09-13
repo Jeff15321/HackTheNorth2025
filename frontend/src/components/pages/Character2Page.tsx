@@ -24,6 +24,9 @@ export default function Character2Page() {
 
   // Turn off future animation at the start of an animation cycle
   useEffect(() => {
+    // Temporary: mark this page as completed on open until API is wired
+    // In the future, move this to run only after a successful API call.
+    useSceneStore.getState().setCompleted("character_2", true);
     if (shouldAnimate) {
       setShouldAnimateScriptData(false);
     }

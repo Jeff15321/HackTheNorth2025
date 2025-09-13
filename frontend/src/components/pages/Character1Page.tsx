@@ -57,6 +57,9 @@ export default function Character1Page() {
   }
 
   useEffect(() => {
+    // Temporary: mark this page as completed on open until API is wired
+    // In the future, move this to run only after a successful API call.
+    useSceneStore.getState().setCompleted("character_1", true);
     load();
   }, []);
 

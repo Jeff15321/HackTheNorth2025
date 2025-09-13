@@ -21,6 +21,7 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
   const [hovered, setHovered] = useState(false);
   const select = useSceneStore((s) => s.select);
   const openPage = useSceneStore((s) => s.openPage);
+  const focusModel = useSceneStore((s) => s.focusModel);
 
   // Geometries
   const bodyGeometry = useMemo(() => new THREE.CylinderGeometry(0.8, 0.8, 2, 32), []);
@@ -88,6 +89,8 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
       }}
       onClick={(e) => {
         e.stopPropagation();
+        // Clicking character 5 is disabled (no-op). Others open their pages.
+        if (index === 4) return;
         select(index, new THREE.Vector3(position[0], position[1], position[2]));
         if (pageId) openPage(pageId);
       }}

@@ -9,6 +9,8 @@ export type SceneState = {
   cameraTarget: THREE.Vector3 | null;
   idleCameraPos: THREE.Vector3;
   selectedPageId: string | null;
+  focusedModelIndex: number | null;
+  completed: Record<string, boolean>;
   // actions
   select: (index: number, target: THREE.Vector3) => void;
   showSidebar: () => void;
@@ -16,6 +18,10 @@ export type SceneState = {
   resetSelectionAndCamera: () => void;
   openPage: (pageId: string) => void;
   closePage: () => void;
+  focusModel: (index: number) => void;
+  clearFocus: () => void;
+  setCameraTarget: (target: THREE.Vector3 | null) => void;
+  setCompleted: (pageId: string, value: boolean) => void;
 };
 
 export const useSceneStore = create<SceneState>((set) => ({
@@ -24,6 +30,8 @@ export const useSceneStore = create<SceneState>((set) => ({
   cameraTarget: null,
   idleCameraPos: new THREE.Vector3(0, 0, 8),
   selectedPageId: null,
+  focusedModelIndex: null,
+  completed: {},
   select: (index: number, target: THREE.Vector3) =>
     set(() => ({ selectedIndex: index, cameraTarget: target, sidebarVisible: true })),
   showSidebar: () => set(() => ({ sidebarVisible: true })),
@@ -32,6 +40,12 @@ export const useSceneStore = create<SceneState>((set) => ({
     set(() => ({ selectedIndex: null, cameraTarget: null, sidebarVisible: false, selectedPageId: null })),
   openPage: (pageId: string) => set(() => ({ selectedPageId: pageId })),
   closePage: () => set(() => ({ selectedPageId: null })),
+  focusModel: (index: number) =>
+    set(() => ({ focusedModelIndex: index, sidebarVisible: false, selectedPageId: null })),
+  clearFocus: () => set(() => ({ focusedModelIndex: null, cameraTarget: null })),
+  setCameraTarget: (target: THREE.Vector3 | null) => set(() => ({ cameraTarget: target })),
+  setCompleted: (pageId: string, value: boolean) =>
+    set((state) => ({ completed: { ...state.completed, [pageId]: value } })),
 }));
 
 
