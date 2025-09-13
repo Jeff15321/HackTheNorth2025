@@ -17,19 +17,21 @@ export default function Character3Page() {
 
   const [activeTab, setActiveTab] = useState<GalleryCategory>("characters");
   const entries = characterGallaryData[activeTab];
+  const hasEntries = entries && entries.length > 0;
 
   const [index, setIndex] = useState(getCurrentCharacterGallaryIndex());
   const [scribblesByIndex, setScribblesByIndex] = useState<Record<number, ScribbleLine[]>>({});
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [version, setVersion] = useState(0);
-  const current = entries[index] ?? entries[0];
+  const current = hasEntries ? (entries[index] ?? entries[0]) : undefined;
 
   useEffect(() => {
     initializeAllLoadingFalse();
   }, []);
 
   function goPrev() {
+    if (!hasEntries) return;
     setIndex((i) => {
       const next = (i - 1 + entries.length) % entries.length;
       setCurrentCharacterGallaryIndex(next);
@@ -38,6 +40,7 @@ export default function Character3Page() {
   }
 
   function goNext() {
+    if (!hasEntries) return;
     setIndex((i) => {
       const next = (i + 1) % entries.length;
       setCurrentCharacterGallaryIndex(next);
@@ -51,7 +54,7 @@ export default function Character3Page() {
     setInput("");
     const payload = {
       prompt,
-      imageSrc: current.image,
+      imageSrc: current?.image || "",
       lines: scribblesByIndex[index] || [],
     };
     setIsProcessing(true);
@@ -171,11 +174,13 @@ export default function Character3Page() {
             ▲
           </button>
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-            {isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+            {!hasEntries ? (
+              <div style={{ opacity: 0.7 }}>No images available.</div>
+            ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
               <LoadingClapBoard />
             ) : (
               <ScribbleEditor
-                src={current.image}
+                src={current!.image}
                 width={420}
                 lines={scribblesByIndex[index]}
                 onChangeLines={(l) => {
@@ -219,10 +224,12 @@ export default function Character3Page() {
             <div style={{ fontWeight: 600 }}>{index + 1}/{entries.length}</div>
           </div>
           <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+            {!hasEntries ? (
+              <div style={{ opacity: 0.7 }}>No description available.</div>
+            ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
               <LoadingClapBoard />
             ) : (
-              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{current.description}</p>
+              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{current!.description}</p>
             )}
           </div>
           <div style={{ borderTop: `1px solid ${colors.cardBorder}`, paddingTop: 8, marginTop: 8, display: "flex", minHeight: 0, flex: 1 }}>

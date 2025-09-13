@@ -87,9 +87,9 @@ export default function Home() {
             <Hero3D
               index={currentIndex}
               position={instances[currentIndex].position}
-              bodyColor={instances[currentIndex].color}
               pageId={instances[currentIndex].pageId}
               zoomActive={!!selectedPageId}
+              glbPath={(instances as any)[currentIndex]?.glb_path}
             />
           ) : (
             // Render only the focused model centered at origin for emphasis
@@ -102,9 +102,9 @@ export default function Home() {
                   const y = inst.position[1];
                   return [x, y, 0] as [number, number, number];
                 })()}
-                bodyColor={instances[focusedModelIndex]?.color}
                 pageId={instances[focusedModelIndex]?.pageId}
                 zoomActive={!!selectedPageId}
+                glbPath={(instances as any)[focusedModelIndex]?.glb_path}
               />
             </group>
           )}

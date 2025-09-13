@@ -1,6 +1,7 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
 import * as THREE from "three";
@@ -13,12 +14,13 @@ export type Hero3DProps = {
   index?: number;
   pageId?: string;
   zoomActive?: boolean;
+  glbPath?: string;
 };
 
-export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], index = 0, pageId, zoomActive = false }: Hero3DProps) {
+export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], index = 0, pageId, zoomActive = false, glbPath }: Hero3DProps) {
   const groupRef = useRef<THREE.Group>(null);
   const targetRotation = useRef(new THREE.Euler());
-  const targetScale = useRef(1);
+  const targetScale = useRef(0);
   const [hovered, setHovered] = useState(false);
   const select = useSceneStore((s) => s.select);
   const openPage = useSceneStore((s) => s.openPage);
@@ -46,8 +48,9 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
     const maxTilt = Math.PI / 6; // 30deg
     const targetX = -mouse.y * maxTilt;
     let targetY = mouse.x * maxTilt;
-    targetRotation.current.set( targetX, zoomActive ? targetY + 1  : targetY, 0);
-    targetScale.current = hovered ? 1.08 : 1.0;
+    targetRotation.current.set( targetX, zoomActive ? targetY + 1.5  : targetY, 0);
+    const baseScale = zoomActive ? 0.7 : 1; // shrink when focused (zoomActive)
+    targetScale.current = hovered ? baseScale * 1.35 : baseScale;
 
     if (groupRef.current) {
       groupRef.current.rotation.x = THREE.MathUtils.damp(
@@ -74,7 +77,7 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
   });
   // Compute declarative position with x-shift based on zoomActive
   const adjustedPosition = useMemo(() => {
-    const shift = zoomActive ? -4.5 : 0;
+    const shift = zoomActive ? -4.8 : 0;
     return [position[0] + shift, position[1], position[2]] as [number, number, number];
   }, [position, zoomActive]);
 
@@ -100,17 +103,26 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
         if (pageId) openPage(pageId);
       }}
     >
-      {/* Body */}
-      <mesh geometry={bodyGeometry} material={bodyMaterial} castShadow receiveShadow />
-
-      {/* Eyes */}
-      <mesh geometry={eyeGeometry} material={eyeMaterial} position={[-0.35, 0.3, 0.8]} castShadow />
-      <mesh geometry={eyeGeometry} material={eyeMaterial} position={[0.35, 0.3, 0.8]} castShadow />
-
-      {/* Pupils */}
-      <mesh geometry={pupilGeometry} material={pupilMaterial} position={[-0.35, 0.3, 1.03]} />
-      <mesh geometry={pupilGeometry} material={pupilMaterial} position={[0.35, 0.3, 1.03]} />
+      {glbPath ? (
+        <GLBModel path={glbPath} />
+      ) : (
+        <>
+          {/* Body */}
+          <mesh geometry={bodyGeometry} material={bodyMaterial} castShadow receiveShadow />
+          {/* Eyes */}
+          <mesh geometry={eyeGeometry} material={eyeMaterial} position={[-0.35, 0.3, 0.8]} castShadow />
+          <mesh geometry={eyeGeometry} material={eyeMaterial} position={[0.35, 0.3, 0.8]} castShadow />
+          {/* Pupils */}
+          <mesh geometry={pupilGeometry} material={pupilMaterial} position={[-0.35, 0.3, 1.03]} />
+          <mesh geometry={pupilGeometry} material={pupilMaterial} position={[0.35, 0.3, 1.03]} />
+        </>
+      )}
     </group>
   );
+}
+
+function GLBModel({ path }: { path: string }) {
+  const { scene } = useGLTF(path);
+  return <primitive object={scene} />;
 }
 

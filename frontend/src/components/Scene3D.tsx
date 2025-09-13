@@ -12,6 +12,7 @@ export default function Scene3D({ children }: Scene3DProps) {
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <Canvas shadows camera={{ position: [0, 0, 8], fov: 50 }}>
+        <color attach="background" args={["#808080"]} />
         <ambientLight intensity={0.5} />
         <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow />
         {children}

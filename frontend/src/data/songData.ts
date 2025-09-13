@@ -100,6 +100,12 @@ export let recommended_songs: SongItem[] = [];
 
 export function setRecommendedSongs(songs: SongItem[]): void {
   recommended_songs = songs || [];
+  if (selected_id.length === 0 && recommended_songs.length > 0) {
+    // Seed selection with recommended songs when nothing is selected yet
+    for (const s of recommended_songs) {
+      addSelectedId(s.id, { title: s.title, file: s.file });
+    }
+  }
 }
 
 export function getDefaultRecommendationSongs(): SongItem[] {

@@ -1,4 +1,6 @@
+import { characterGallaryDataEntry, setCharacterGallaryData } from "@/data/characterData";
 import { getDefaultRecommendationSongs, setRecommendedSongs } from "@/data/songData";
+import { GalleryCategory } from "@/data/characterData";
 
 function getDefaultTopScript(): string {
     return `
@@ -15,6 +17,50 @@ What followed would change everything—nights of endless tinkering, sparks flyi
     `;
     }
 
+  export const characterGallaryData: Record<GalleryCategory, characterGallaryDataEntry[]> = {
+    characters: [
+      {
+        image: "/images/images.jpg",
+        description:
+          "A misty shoreline at dawn. The first light reveals hidden shapes and quiet motion in the waves.",
+      },
+      {
+        image: "/images/images.jpg",
+        description:
+          "An old workshop desk with scattered notes and brass instruments, paused mid-experiment.",
+      },
+      {
+        image: "/images/images.jpg",
+        description:
+          "A city alley glowing with neon. Reflections ripple across puddles after a sudden rain.",
+      },
+      {
+        image: "/images/cat1.jpg",
+        description:
+          "A mountain pass under a violet sky. Thin air, long echoes, and the distant sound of wind.",
+      },
+    ],
+    objects: [
+      {
+        image: "/images/cat1.jpg",
+        description: "A vintage camera resting on a wooden shelf, its lens reflecting soft window light.",
+      },
+      {
+        image: "/images/images.jpg",
+        description: "A brass pocket watch with intricate engravings, stopped at midnight.",
+      },
+    ],
+      scenes: [
+        {
+          image: "/images/images.jpg",
+          description: "A quiet library aisle, dust motes dancing in the projector beam.",
+        },
+        {
+          image: "/images/cat1.jpg",
+          description: "A roadside diner at dusk, neon sign buzzing against a pink sky.",
+        },
+      ],
+  }
   
 export async function talkToScriptAgent(_prompt: string): Promise<string> {
   // Simulate network latency (~3s) then return content
@@ -26,5 +72,10 @@ export async function talkToScriptAgent(_prompt: string): Promise<string> {
   try {
     setRecommendedSongs(getDefaultRecommendationSongs());
   } catch {}
+
+  try {
+    setCharacterGallaryData(characterGallaryData);
+  } catch {}
+  
   return getDefaultTopScript();
 }

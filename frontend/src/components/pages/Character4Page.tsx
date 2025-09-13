@@ -163,7 +163,7 @@ export default function Character4Page() {
                     <span>{s.duration}</span>
                   </div>
                 </div>
-                <SongSelectButton songId={s.id} title={s.title} file={s.file} onChange={() => setSelectionVersion((v) => v + 1)} />
+                <SongSelectButton songId={s.id} title={s.title} file={s.file} version={selectionVersion} onChange={() => setSelectionVersion((v) => v + 1)} />
               </li>
             ))}
           </ul>
@@ -227,9 +227,14 @@ export default function Character4Page() {
   );
 }
 
-type SongSelectButtonProps = { songId: string; title: string; file: string; onChange?: () => void };
-function SongSelectButton({ songId, title, file, onChange }: SongSelectButtonProps) {
+type SongSelectButtonProps = { songId: string; title: string; file: string; onChange?: () => void; version?: number };
+function SongSelectButton({ songId, title, file, onChange, version }: SongSelectButtonProps) {
   const [selected, setSelected] = useState<boolean>(isSelectedId(songId));
+
+  // Sync local selected with global selected_id whenever version changes
+  useEffect(() => {
+    setSelected(isSelectedId(songId));
+  }, [version, songId]);
 
   async function handleClick() {
     try {
