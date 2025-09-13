@@ -37,7 +37,7 @@ export const useSceneStore = create<SceneState>((set) => ({
   showSidebar: () => set(() => ({ sidebarVisible: true })),
   hideSidebar: () => set(() => ({ sidebarVisible: false })),
   resetSelectionAndCamera: () =>
-    set(() => ({ selectedIndex: null, cameraTarget: null, sidebarVisible: false, selectedPageId: null })),
+    set(() => ({ selectedIndex: null, cameraTarget: null, sidebarVisible: false, selectedPageId: null, focusedModelIndex: null })),
   openPage: (pageId: string) => set(() => ({ selectedPageId: pageId })),
   closePage: () => set(() => ({ selectedPageId: null })),
   focusModel: (index: number) =>

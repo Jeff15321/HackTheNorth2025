@@ -77,7 +77,7 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
   useEffect(() => {
     if (groupRef.current) {
       if (zoomActive) {
-        groupRef.current.position.x = position[0] - 2;
+        groupRef.current.position.x = position[0] - 4.5;
       } else {
         groupRef.current.position.x = position[0];
       }

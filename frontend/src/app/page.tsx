@@ -36,8 +36,8 @@ export default function Home() {
     if (focusedModelIndex !== null) {
       const inst = instances[focusedModelIndex];
       if (inst) {
-        const x = inst.position[0] + inst.focusedOffset[0];
-        const y = inst.position[1] + inst.focusedOffset[1];
+        const x = inst.position[0];
+        const y = inst.position[1];
         const target = new THREE.Vector3(x, y, 0);
         if (!cameraTarget || !cameraTarget.equals(target)) {
           setCameraTarget(target);
@@ -80,7 +80,7 @@ export default function Home() {
     <div className="min-h-screen w-full">
       <div className="h-screen w-full relative">
         <Scene3D>
-          <CameraRig target={cameraTarget ?? undefined} zOffset={3.5} idlePosition={idleCameraPos} />
+          <CameraRig target={cameraTarget ?? undefined} zOffset={6} idlePosition={idleCameraPos} />
           {focusedModelIndex === null ? (
             <Hero3D
               index={currentIndex}
@@ -96,8 +96,8 @@ export default function Home() {
                 index={focusedModelIndex}
                 position={(() => {
                   const inst = instances[focusedModelIndex];
-                  const x = inst.position[0] + inst.focusedOffset[0];
-                  const y = inst.position[1] + inst.focusedOffset[1];
+                  const x = inst.position[0];
+                  const y = inst.position[1];
                   return [x, y, 0] as [number, number, number];
                 })()}
                 bodyColor={instances[focusedModelIndex]?.color}
@@ -129,7 +129,7 @@ export default function Home() {
         <ModelSwitcherPanel
           isOpen={panelOpen}
           onClose={() => setPanelOpen(false)}
-          onSelectIndex={(idx) => { closePage(); setCurrentIndex(idx); }}
+          onSelectIndex={(idx) => { closePage(); clearFocus(); setCurrentIndex(idx); }}
           onShowAll={() => clearFocus()}
           buttonLabels={instances.map((_, idx) => `Show Character ${idx + 1}`)}
         />
