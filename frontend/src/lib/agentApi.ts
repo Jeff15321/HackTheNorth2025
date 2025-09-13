@@ -1,3 +1,5 @@
+import { getDefaultRecommendationSongs, setRecommendedSongs } from "@/data/songData";
+
 function getDefaultTopScript(): string {
     return `
 In the heart of the city, beneath the constant hum of traffic and chatter, a small workshop quietly thrived. Its shelves overflowed with curious devices—half-finished clocks, glowing crystals, and notebooks filled with scribbles no one but the inventor could decipher.
@@ -12,11 +14,17 @@ The inventor unwrapped the box, revealing a mechanism unlike anything seen befor
 What followed would change everything—nights of endless tinkering, sparks flying, and discoveries that stretched the very definition of possibility. But it all began in that small workshop, on that rainy day, with a single knock at the door.
     `;
     }
+
   
 export async function talkToScriptAgent(_prompt: string): Promise<string> {
+  // Simulate network latency (~3s) then return content
+  await new Promise((resolve) => setTimeout(resolve, 3000));
   // Future API call placeholder:
   // const res = await fetch('/api/talkToScriptAgent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: _prompt }) });
   // const json = await res.json();
   // return json.content;
+  try {
+    setRecommendedSongs(getDefaultRecommendationSongs());
+  } catch {}
   return getDefaultTopScript();
 }

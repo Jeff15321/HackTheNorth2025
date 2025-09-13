@@ -44,17 +44,15 @@ export default function Character2Page() {
     setTopScript("");
     setTypeKey((k) => k + 1);
     setIsLoading(true);
-    setTimeout(async () => {
-      const result = await talkToScriptAgent(prompt);
-      setTopScript(result);
-      setScriptDataValue(result);
-      // Mark completed when API first returns a value
-      useSceneStore.getState().setCompleted("character_2", true);
-      setIsLoading(false);
-      setShouldAnimate(true);
-      setShouldAnimateScriptData(true);
-      setTypeKey((k) => k + 1);
-    }, 3000);
+    const result = await talkToScriptAgent(prompt);
+    setTopScript(result);
+    setScriptDataValue(result);
+    // Mark completed when API first returns a value
+    useSceneStore.getState().setCompleted("character_2", true);
+    setIsLoading(false);
+    setShouldAnimate(true);
+    setShouldAnimateScriptData(true);
+    setTypeKey((k) => k + 1);
   }
 
   return (
@@ -64,7 +62,7 @@ export default function Character2Page() {
         top: 0,
         right: 0,
         height: "100vh",
-        width: "28rem",
+        width: "80%",
         background: backgroundColor,
         borderLeft: "1px solid rgba(0,0,0,0.08)",
         boxShadow: `-8px 0 24px ${colors.shadow}`,

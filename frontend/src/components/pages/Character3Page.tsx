@@ -4,8 +4,9 @@ import { useMemo, useState, useEffect } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
 import { themeCharacter1, colors } from "@/styles/colors";
 import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
-import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData } from "@/data/characterData";
+import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData, setEntryLoading, initializeAllLoadingFalse, GalleryCategory } from "@/data/characterData";
 import { sendImageWithScribbles } from "@/lib/imageAgent";
+import LoadingClapBoard from "../common/loading_clap_board";
 
 export default function Character3Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
@@ -14,18 +15,18 @@ export default function Character3Page() {
   const borderColor = themeCharacter1.border;
   const backgroundColor = themeCharacter1.background;
 
-  const entries = characterGallaryData;
+  const [activeTab, setActiveTab] = useState<GalleryCategory>("characters");
+  const entries = characterGallaryData[activeTab];
 
   const [index, setIndex] = useState(getCurrentCharacterGallaryIndex());
   const [scribblesByIndex, setScribblesByIndex] = useState<Record<number, ScribbleLine[]>>({});
   const [input, setInput] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const [version, setVersion] = useState(0);
   const current = entries[index] ?? entries[0];
 
   useEffect(() => {
-    // Temporary: mark this page as completed on open until API is wired
-    // In the future, move this to run only after a successful API call.
-    useSceneStore.getState().setCompleted("character_3", true);
+    initializeAllLoadingFalse();
   }, []);
 
   function goPrev() {
@@ -53,13 +54,22 @@ export default function Character3Page() {
       imageSrc: current.image,
       lines: scribblesByIndex[index] || [],
     };
-    const resp = await sendImageWithScribbles(payload);
-    // Replace current entry with returned values
-    updateCharacterGalleryData(index, resp.file_path, resp.description);
-    // Clear scribbles for new image path
-    setScribblesByIndex((prev) => ({ ...prev, [index]: [] }));
-    setScribblesForImage(resp.file_path, []);
-    setVersion((v) => v + 1);
+    setIsProcessing(true);
+    setEntryLoading(activeTab, index, true);
+    try {
+      const resp = await sendImageWithScribbles(payload);
+      // Mark completed on first successful response
+      useSceneStore.getState().setCompleted("character_3", true);
+      // Replace current entry with returned values
+      updateCharacterGalleryData(activeTab, index, resp.file_path, resp.description);
+      // Clear scribbles for new image path
+      setScribblesByIndex((prev) => ({ ...prev, [index]: [] }));
+      setScribblesForImage(resp.file_path, []);
+      setVersion((v) => v + 1);
+    } finally {
+      setIsProcessing(false);
+      setEntryLoading(activeTab, index, false);
+    }
   }
 
   // Load persisted scribbles for the current image when index changes
@@ -82,7 +92,7 @@ export default function Character3Page() {
         top: 0,
         right: 0,
         height: "100vh",
-        width: "66.6667vw",
+        width: "80%",
         background: backgroundColor,
         borderLeft: "1px solid rgba(0,0,0,0.08)",
         boxShadow: `-8px 0 24px ${colors.shadow}`,
@@ -95,7 +105,28 @@ export default function Character3Page() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>character_3</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["characters", "objects", "scenes"] as GalleryCategory[]).map((tab) => {
+            const selected = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setIndex(0); }}
+                style={{
+                  border: `1px solid ${selected ? borderColor : colors.borderLight}`,
+                  padding: "6px 10px",
+                  borderRadius: 16,
+                  background: selected ? colors.white : "transparent",
+                  color: selected ? borderColor : textColor,
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                }}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
         <button
           style={{ border: `1px solid ${colors.borderLight}`, padding: "6px 10px", borderRadius: 6, background: colors.white }}
           onClick={reset}
@@ -140,15 +171,19 @@ export default function Character3Page() {
             ▲
           </button>
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-            <ScribbleEditor
-              src={current.image}
-              width={420}
-              lines={scribblesByIndex[index]}
-              onChangeLines={(l) => {
-                setScribblesByIndex((prev) => ({ ...prev, [index]: l }));
-                if (current?.image) setScribblesForImage(current.image, l);
-              }}
-            />
+            {isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+              <LoadingClapBoard />
+            ) : (
+              <ScribbleEditor
+                src={current.image}
+                width={420}
+                lines={scribblesByIndex[index]}
+                onChangeLines={(l) => {
+                  setScribblesByIndex((prev) => ({ ...prev, [index]: l }));
+                  if (current?.image) setScribblesForImage(current.image, l);
+                }}
+              />
+            )}
           </div>
           <button
             onClick={goNext}
@@ -183,8 +218,12 @@ export default function Character3Page() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontWeight: 600 }}>{index + 1}/{entries.length}</div>
           </div>
-          <div style={{ flex: 1, overflow: "auto" }}>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{current.description}</p>
+          <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+              <LoadingClapBoard />
+            ) : (
+              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{current.description}</p>
+            )}
           </div>
           <div style={{ borderTop: `1px solid ${colors.cardBorder}`, paddingTop: 8, marginTop: 8, display: "flex", minHeight: 0, flex: 1 }}>
             <textarea

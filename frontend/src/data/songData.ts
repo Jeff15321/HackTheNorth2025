@@ -95,6 +95,19 @@ export type SelectedSongEntry = { id: string } & Record<string, unknown>;
 
 export const selected_id: SelectedSongEntry[] = [];
 
+// Recommended songs (updated by agents/APIs). Starts empty.
+export let recommended_songs: SongItem[] = [];
+
+export function setRecommendedSongs(songs: SongItem[]): void {
+  recommended_songs = songs || [];
+}
+
+export function getDefaultRecommendationSongs(): SongItem[] {
+  // Simple default: take first 6 songs across categories
+  const all = songCategories.flatMap((c) => c.songs);
+  return all.slice(0, 6);
+}
+
 export function addSelectedId(id: string, extra: Record<string, unknown> = {}): void {
   if (selected_id.find((e) => e.id === id)) return;
   selected_id.push({ id, ...extra });

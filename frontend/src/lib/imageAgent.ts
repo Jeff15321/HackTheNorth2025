@@ -16,6 +16,8 @@ export async function sendImageWithScribbles(_req: ImageAgentRequest): Promise<I
   // const res = await fetch('/api/your-endpoint', { ... })
   // const json = await res.json();
   // return json as ImageAgentResponse;
+  // Simulate processing delay (~3s)
+  await new Promise((resolve) => setTimeout(resolve, 3000));
 
   return {
     file_path: "/images/cat1.jpg",

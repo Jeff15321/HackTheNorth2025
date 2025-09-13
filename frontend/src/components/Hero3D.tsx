@@ -46,8 +46,7 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
     const maxTilt = Math.PI / 6; // 30deg
     const targetX = -mouse.y * maxTilt;
     let targetY = mouse.x * maxTilt;
-    if (zoomActive) targetY += 1;
-    targetRotation.current.set(targetX, targetY, 0);
+    targetRotation.current.set( targetX, zoomActive ? targetY + 1  : targetY, 0);
     targetScale.current = hovered ? 1.08 : 1.0;
 
     if (groupRef.current) {
