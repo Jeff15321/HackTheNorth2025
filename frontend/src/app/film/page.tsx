@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import FilmPlayer from "@/components/FilmPlayer";
 
-export default function FilmPage() {
+function FilmPageContent() {
   const searchParams = useSearchParams();
   
   // We love big buck boney video
@@ -20,5 +21,13 @@ export default function FilmPage() {
         initialRate={rate}
       />
     </div>
+  );
+}
+
+export default function FilmPage() {
+  return (
+    <Suspense fallback={null}>
+      <FilmPageContent />
+    </Suspense>
   );
 }
