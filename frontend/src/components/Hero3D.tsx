@@ -73,23 +73,16 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
       groupRef.current.scale.setScalar(s);
     }
   });
-
-  useEffect(() => {
-    if (groupRef.current) {
-      if (zoomActive) {
-        groupRef.current.position.x = position[0] - 4.5;
-      } else {
-        groupRef.current.position.x = position[0];
-      }
-    }
-  }, [zoomActive]);
-
-  // Note: x-shift on click is gated by zoomActive; no automatic reset
+  // Compute declarative position with x-shift based on zoomActive
+  const adjustedPosition = useMemo(() => {
+    const shift = zoomActive ? -4.5 : 0;
+    return [position[0] + shift, position[1], position[2]] as [number, number, number];
+  }, [position, zoomActive]);
 
   return (
     <group
       ref={groupRef}
-      position={position as unknown as THREE.Vector3 | undefined}
+      position={adjustedPosition as unknown as THREE.Vector3 | undefined}
       castShadow
       receiveShadow
       onPointerOver={(e) => {

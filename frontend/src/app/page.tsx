@@ -76,6 +76,8 @@ export default function Home() {
   const total = instances.length;
   const done = instances.reduce((acc, inst) => acc + (completed[inst.pageId] ? 1 : 0), 0);
   const pct = (done / total) * 100;
+  const displayIndex = (focusedModelIndex ?? currentIndex);
+  const nextIsComplete = !!completed[instances[displayIndex]?.pageId];
   return (
     <div className="min-h-screen w-full">
       <div className="h-screen w-full relative">
@@ -115,7 +117,7 @@ export default function Home() {
           </div>
           <span style={{ color: "#111", fontSize: 12 }}>{done}/{total}</span>
           <button onClick={goPrev} className="px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white">Prev</button>
-          <button onClick={goNext} className="px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white">Next</button>
+          <button onClick={goNext} className={`px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white ${nextIsComplete ? "animate-pulse" : ""}`}>Next</button>
         </div>
 
         {/* Toggle Button - fixed bottom-left */}

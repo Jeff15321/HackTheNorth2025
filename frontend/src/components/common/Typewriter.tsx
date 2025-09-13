@@ -30,6 +30,7 @@ export default function Typewriter({
   const [i, setI] = useState(0);
   const iRef = useRef(0);
   const cancelled = useRef(false);
+  const onDoneRef = useRef<(() => void) | undefined>(onDone);
 
   useEffect(() => {
     cancelled.current = false;
@@ -77,7 +78,7 @@ export default function Typewriter({
       if (timeoutId !== undefined) clearTimeout(timeoutId);
       if (startId !== undefined) clearTimeout(startId);
     };
-  }, [text, speed, startDelay, onDone, punctuationPause, newlinePause, paragraphPause]);
+  }, [text, speed, startDelay, punctuationPause, newlinePause, paragraphPause]);
 
   return (
     <textarea
