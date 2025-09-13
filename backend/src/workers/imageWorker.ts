@@ -1,14 +1,10 @@
 import { Worker, Job } from 'bullmq';
 import { generateImage, editImage } from '../ai/gemini.js';
 import { saveBlobFile, generateAssetFilename } from '../utils/blob.js';
-import { updateJobStatus } from '../utils/queue.js';
-import { createCharacter, createObject } from '../utils/database.js';
+import { updateJobStatus, queueConnection } from '../utils/queue.js';
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  db: parseInt(process.env.REDIS_DB || '0')
-};
+// Use shared connection from queue.js to ensure event listeners work
+const connection = queueConnection;
 
 export function createImageWorkers() {
   const characterGenerationWorker = new Worker(
@@ -63,17 +59,36 @@ async function processImageGeneration(job: Job) {
   try {
     await updateJobStatus(job.id!, 'processing', 30);
 
-    // Simple test - just return a basic object
-    const testResult = {
-      test: 'success',
+    const { project_id, input_data } = job.data;
+    const { prompt, type, metadata } = input_data;
+
+    if (type === 'characters') {
+      return {
+        type: 'character',
+        character_id: `char_${job.id}`,
+        character_data: {
+          name: metadata?.name || 'Generated Character',
+          description: prompt,
+          generated_at: new Date().toISOString()
+        }
+      };
+    } else if (type === 'objects') {
+      const imageUrl = `/blob/${project_id}/objects/mock_object_${job.id}.png`;
+      return {
+        type: 'object',
+        image_url: imageUrl,
+        filename: `mock_object_${job.id}.png`,
+        file_size: 1024 * 100, // Mock 100KB
+        object_type: metadata?.type || 'object',
+        generated_at: new Date().toISOString()
+      };
+    }
+
+    return {
+      type: 'unknown',
       job_id: job.id,
-      character_id: 'test-character-id-12345',
-      message: 'This is a test result to verify worker return'
+      message: 'Test result - job type not recognized'
     };
-
-    console.log('🚨 [WORKER] About to return test result:', JSON.stringify(testResult, null, 2));
-
-    return testResult;
 
   } catch (error) {
     console.error('🚨 [WORKER] Error in test worker:', error);

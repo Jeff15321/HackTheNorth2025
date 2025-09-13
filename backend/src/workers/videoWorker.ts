@@ -1,13 +1,10 @@
 import { Worker, Job } from 'bullmq';
 import { generateVideoFromImage, generateVideoFromText, downloadVideo, type VideoGenerationOptions } from '../ai/fal.js';
 import { saveBlobFile, generateAssetFilename } from '../utils/blob.js';
-import { updateJobStatus } from '../utils/queue.js';
+import { updateJobStatus, queueConnection } from '../utils/queue.js';
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  db: parseInt(process.env.REDIS_DB || '0')
-};
+// Use shared connection from queue.js to ensure event listeners work
+const connection = queueConnection;
 
 export function createVideoWorker() {
   const videoWorker = new Worker(

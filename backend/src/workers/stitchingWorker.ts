@@ -1,13 +1,9 @@
 import { Worker, Job } from 'bullmq';
 import { stitchVideos } from '../ai/ffmpeg.js';
 import { getBlobPath, generateAssetFilename } from '../utils/blob.js';
-import { updateJobStatus } from '../utils/queue.js';
+import { updateJobStatus, queueConnection } from '../utils/queue.js';
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  db: parseInt(process.env.REDIS_DB || '0')
-};
+const connection = queueConnection;
 
 export function createStitchingWorker() {
   const stitchingWorker = new Worker(

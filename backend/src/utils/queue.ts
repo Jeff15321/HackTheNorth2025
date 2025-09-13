@@ -35,12 +35,14 @@ export function getRedisClient() {
   return redisClient;
 }
 
+export const queueConnection = {
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  db: parseInt(process.env.REDIS_DB || '0')
+};
+
 export function createQueues() {
-  const connection = {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    db: parseInt(process.env.REDIS_DB || '0')
-  };
+  const connection = queueConnection;
 
   const jobTypes: JobType[] = [
     'character-generation',
@@ -207,12 +209,17 @@ export async function getQueueInfo(jobType: JobType) {
 }
 
 export function setupJobEventListeners() {
+  console.log('🔧 [QUEUE] Setting up event listeners for queues:', Array.from(queueEvents.keys()));
+  
   for (const [jobType, events] of queueEvents.entries()) {
+    console.log(`🔧 [QUEUE] Setting up listener for: ${jobType}`);
+    
     events.on('completed', async ({ jobId, returnvalue }) => {
-      console.log(`🎉 [QUEUE] Job completed: ${jobType} (${jobId})`);
-      console.log('🔍 [QUEUE] Return value type:', typeof returnvalue);
-      console.log('🔍 [QUEUE] Return value raw:', returnvalue);
-      console.log('🔍 [QUEUE] Return value JSON:', JSON.stringify(returnvalue, null, 2));
+      console.log(`🚨 [QUEUE EVENT] ========================================`);
+      console.log(`🎉 [QUEUE EVENT] Job completed: ${jobType} (${jobId})`);
+      console.log('🔍 [QUEUE EVENT] Return value type:', typeof returnvalue);
+      console.log('🔍 [QUEUE EVENT] Return value raw:', returnvalue);
+      console.log('🔍 [QUEUE EVENT] Return value JSON:', JSON.stringify(returnvalue, null, 2));
 
       let outputData: Record<string, unknown>;
       if (typeof returnvalue === 'string') {
@@ -227,8 +234,10 @@ export function setupJobEventListeners() {
         outputData = { raw_return: returnvalue, debug_info: 'returnvalue_was_falsy_or_unexpected' };
       }
 
-      console.log('🔍 [QUEUE] Final processed output data:', JSON.stringify(outputData, null, 2));
+      console.log('🔍 [QUEUE EVENT] Final processed output data:', JSON.stringify(outputData, null, 2));
       await updateJobStatus(jobId, 'completed', 100, outputData);
+      console.log(`🚨 [QUEUE EVENT] Event handler completed for ${jobType} (${jobId})`);
+      console.log(`🚨 [QUEUE EVENT] ========================================`);
     });
 
     events.on('failed', ({ jobId, failedReason }) => {

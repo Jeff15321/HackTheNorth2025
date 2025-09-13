@@ -287,7 +287,10 @@ export async function jobRoutes(fastify: FastifyInstance) {
             status: { type: 'string' },
             progress: { type: 'number' },
             updated_at: { type: 'string' },
-            output_data: { type: 'object' },
+            output_data: { 
+              type: 'object',
+              additionalProperties: true
+            },
             error_message: { type: 'string' }
           }
         },

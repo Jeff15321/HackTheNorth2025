@@ -1,13 +1,57 @@
 import { Worker, Job } from 'bullmq';
-import { generateText, generateScript, generateCharacterDescription, parseReferencedIds } from '../ai/gemini.js';
+import { generateText, generateJSON, generateScript, generateCharacterDescription, parseReferencedIds } from '../ai/gemini.js';
+import { SchemaType, type Schema } from '@google/generative-ai';
 import { createCharacter, createScene, createFrame, getCharactersByProject } from '../utils/database.js';
-import { updateJobStatus, addJob } from '../utils/queue.js';
+import { updateJobStatus, addJob, queueConnection } from '../utils/queue.js';
 import { buildSceneContext, buildFrameContext, formatContextForPrompt } from '../utils/context.js';
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  db: parseInt(process.env.REDIS_DB || '0')
+// Use shared connection from queue.js to ensure event listeners work
+const connection = queueConnection;
+
+const sceneGenerationSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    detailed_plot: {
+      type: SchemaType.STRING,
+      description: "Detailed scene plot with character actions and environmental details"
+    },
+    concise_plot: {
+      type: SchemaType.STRING,
+      description: "Concise one-sentence summary of the scene"
+    },
+    duration: {
+      type: SchemaType.NUMBER,
+      description: "Scene duration in seconds (max 8)"
+    },
+    dialogue: {
+      type: SchemaType.STRING,
+      description: "Dialogue and spoken content for the scene"
+    }
+  },
+  required: ["detailed_plot", "concise_plot", "duration", "dialogue"]
+};
+
+const frameGenerationSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    veo3_prompt: {
+      type: SchemaType.STRING,
+      description: "Detailed Veo 3 video prompt with cinematic quality and specific camera angles"
+    },
+    dialogue: {
+      type: SchemaType.STRING,
+      description: "Clear dialogue timing for the frame"
+    },
+    duration_constraint: {
+      type: SchemaType.NUMBER,
+      description: "Maximum duration constraint in seconds (max 8)"
+    },
+    split_reason: {
+      type: SchemaType.STRING,
+      description: "Reason for frame splitting if needed"
+    }
+  },
+  required: ["veo3_prompt", "dialogue", "duration_constraint"]
 };
 
 export function createLLMWorker() {
@@ -94,7 +138,7 @@ async function processSceneGeneration(job: Job) {
     const characterTokens = contextData.characters.map(c => `<|character_${c.id}|>`);
     const objectTokens = contextData.objects.map(o => `<|object_${o.id}|>`);
 
-    const systemPrompt = `You are a film director. Generate a detailed scene based on the description and hierarchical context. Return JSON with fields: detailed_plot, concise_plot, duration, dialogue.`;
+    const systemPrompt = `You are a film director. Generate a detailed scene based on the description and hierarchical context.`;
 
     const prompt = `
 Scene Description: ${scene_description}
@@ -108,11 +152,14 @@ Generate a scene that:
 - References characters using tokens when needed: ${characterTokens.join(', ')}
 - References objects using tokens when needed: ${objectTokens.join(', ')}
 - Includes environmental details
-- Must return valid JSON format
 `;
 
-    const sceneText = await generateText(prompt, systemPrompt);
-    const sceneData = JSON.parse(sceneText);
+    const sceneData = await generateJSON<{
+      detailed_plot: string;
+      concise_plot: string;
+      duration: number;
+      dialogue: string;
+    }>(prompt, sceneGenerationSchema, systemPrompt);
 
     await updateJobStatus(job.id!, 'processing', 70);
 
@@ -168,7 +215,7 @@ async function processFrameGeneration(job: Job) {
 
     await updateJobStatus(job.id!, 'processing', 50);
 
-    const systemPrompt = `You are a video prompt engineer. Generate a detailed Veo 3 video prompt for this frame using hierarchical context. Return JSON with: veo3_prompt, dialogue, duration_constraint, split_reason (if needed).`;
+    const systemPrompt = `You are a video prompt engineer. Generate a detailed Veo 3 video prompt for this frame using hierarchical context.`;
 
     const prompt = `
 Frame Index: ${frame_index}
@@ -184,11 +231,14 @@ Generate a Veo 3 video prompt for this frame:
 - Cinematic quality with specific camera angles
 - Clear dialogue timing
 - Visual consistency with character/object descriptions
-- Must return valid JSON format
 `;
 
-    const frameText = await generateText(prompt, systemPrompt);
-    const frameData = JSON.parse(frameText);
+    const frameData = await generateJSON<{
+      veo3_prompt: string;
+      dialogue: string;
+      duration_constraint: number;
+      split_reason?: string;
+    }>(prompt, frameGenerationSchema, systemPrompt);
 
     await updateJobStatus(job.id!, 'processing', 70);
 
