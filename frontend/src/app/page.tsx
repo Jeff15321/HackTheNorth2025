@@ -23,6 +23,7 @@ export default function Home() {
   const focusModel = useSceneStore((s) => s.focusModel);
   const setCameraTarget = useSceneStore((s) => s.setCameraTarget);
   const completed = useSceneStore((s) => s.completed);
+  const selectedPageId = useSceneStore((s) => s.selectedPageId);
   const [panelOpen, setPanelOpen] = useState(false);
   // const resetSelectionAndCamera = useSceneStore((s) => s.resetSelectionAndCamera);
 
@@ -63,7 +64,7 @@ export default function Home() {
   return (
     <div className="min-h-screen w-full">
       <div className="h-screen w-full relative">
-        <Scene3D>
+        <Scene3D mini={!!selectedPageId}>
           <CameraRig target={cameraTarget ?? undefined} zOffset={3.5} idlePosition={idleCameraPos} />
           {focusedModelIndex === null ? (
             instances.map((inst, idx) => (

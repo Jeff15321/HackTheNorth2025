@@ -54,7 +54,7 @@ export default function Character2Page() {
         top: 0,
         right: 0,
         height: "100vh",
-        width: "28rem",
+        width: "100%",
         background: backgroundColor,
         borderLeft: "1px solid rgba(0,0,0,0.08)",
         boxShadow: `-8px 0 24px ${colors.shadow}`,
