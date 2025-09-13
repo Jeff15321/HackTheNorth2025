@@ -325,7 +325,7 @@ class E2EContextTest {
   private async clearRedisCache(): Promise<void> {
     TestLogger.info('🧹 Clearing Redis cache for clean test environment...');
     try {
-      const result = await this.api.call('DELETE', '/api/redis/clear');
+      const result = await this.api.call('DELETE', '/api/redis/clear', {});
       TestLogger.success('Redis cache cleared', result);
     } catch (error) {
       TestLogger.warn('Failed to clear Redis cache:', (error as Error).message);
@@ -565,40 +565,6 @@ class E2EContextTest {
     }
   }
 
-  private async testContextInheritanceValidation(): Promise<void> {
-    TestLogger.info('🔍 TESTING: Context Inheritance Validation');
-
-    // Test that each level has proper context inheritance
-    const validations = [
-      { level: 'Characters', count: this.results.characterIds.length, expected: 3, context: 'project summary + user preferences' },
-      { level: 'Objects', count: this.results.objectIds.length, expected: 3, context: 'project summary + characters' },
-      { level: 'Scenes', count: this.results.sceneIds.length, expected: 2, context: 'all characters + project plot' },
-      { level: 'Frames', count: this.results.frameIds.length, expected: '>0', context: 'characters + current scene + objects (auto-detected)' },
-      { level: 'Videos', count: this.results.videoIds.length, expected: '>0', context: 'frame context + visual prompts' }
-    ];
-
-    validations.forEach(v => {
-      const passed = typeof v.expected === 'string' ? v.count > 0 : v.count >= v.expected;
-      if (passed) {
-        TestLogger.success(`✓ ${v.level} context inheritance: ${v.count} items with '${v.context}'`);
-      } else {
-        TestLogger.error(`✗ ${v.level} context inheritance failed: ${v.count} items, expected ${v.expected}`);
-      }
-    });
-  }
-
-  private async testTokenReferenceSystem(): Promise<void> {
-    TestLogger.info('🔗 TESTING: Token Reference System (<|character_id|> and <|object_id|>)');
-
-    // This would typically require examining the generated content
-    // For this test, we'll validate the system supports token generation
-    TestLogger.success('Token reference system validation:', {
-      character_tokens_available: this.results.characterIds.map(id => `<|character_${id}|>`),
-      object_tokens_available: this.results.objectIds.map(id => `<|object_${id}|>`),
-      note: 'Actual token usage would be validated by examining generated scene/frame content'
-    });
-  }
-
   private async testJobCancellation(): Promise<void> {
     TestLogger.info('❌ TESTING: Job Cancellation Functionality');
 
@@ -695,7 +661,6 @@ class E2EContextTest {
   private async testParallelJobExecution(): Promise<void> {
     TestLogger.info('⚡ TESTING: Parallel Job Execution & Dependency Tree');
 
-    // Get current queue states to show parallel execution
     const queues = await this.api.call<QueueStatus[]>('GET', '/api/queues/status');
 
     TestLogger.success('Queue Execution Analysis:', {

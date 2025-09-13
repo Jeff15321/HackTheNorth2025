@@ -1,5 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { z } from 'zod';
+import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
 
 const IMAGE_MODEL = 'gemini-2.0-flash-preview-image-generation';
 const TEXT_MODEL = 'gemini-2.5-flash';
@@ -14,7 +13,7 @@ const PROMPTS = {
   PLOT_SYSTEM: 'You are a professional story consultant. Generate detailed plot outlines with clear story beats, character arcs, and scene breakdowns.'
 };
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEYS?.split(',')[0];
+const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) throw new Error('GEMINI_API_KEY environment variable required');
 
 const gemini = new GoogleGenerativeAI(apiKey.trim());
@@ -86,37 +85,35 @@ export async function generateCharacterDescription(name: string, context: string
   personality: string;
   description: string;
 }> {
-  const prompt = `Create a character description for "${name}" in the context of: ${context}\n\nReturn JSON with fields: name, age, personality, description`;
-  const response = await generateText(prompt, PROMPTS.CHARACTER_SYSTEM);
+  const geminiSchema = {
+    type: SchemaType.OBJECT,
+    properties: {
+      name: { type: SchemaType.STRING },
+      age: { type: SchemaType.NUMBER },
+      personality: { type: SchemaType.STRING },
+      description: { type: SchemaType.STRING }
+    },
+    required: ["name", "age", "personality", "description"]
+  } as Schema;
 
-  try {
-    return JSON.parse(response);
-  } catch (error) {
-    console.error('Error parsing character description JSON:', error);
-    throw new Error('Failed to generate valid character description');
-  }
+  const prompt = `Create a character description for "${name}" in the context of: ${context}`;
+  return generateJSON(prompt, geminiSchema, PROMPTS.CHARACTER_SYSTEM);
 }
 
 export async function generateJSON<T>(
   prompt: string,
-  schema: z.ZodSchema<T>,
+  geminiSchema: Schema,
   systemPrompt?: string
 ): Promise<T> {
   const model = gemini.getGenerativeModel({
     model: TEXT_MODEL,
     generationConfig: {
-      responseMimeType: "application/json"
+      responseMimeType: "application/json",
+      responseSchema: geminiSchema
     }
   });
 
-  const jsonPrompt = `${systemPrompt ? systemPrompt + '\n\n' : ''}${prompt}
-
-Respond with a JSON object containing exactly these fields:
-- director_response: string (your enthusiastic response to the concept)
-- suggested_questions: array of strings (2-3 questions to clarify their vision)
-- character_suggestions: array of objects with name and description (2-3 character ideas)
-- plot_outline: string (initial plot structure)
-- next_step: string (what to do next)`;
+  const jsonPrompt = `${systemPrompt ? systemPrompt + '\n\n' : ''}${prompt}`;
 
   const result = await model.generateContent(jsonPrompt);
   const text = result.response.text().trim();
@@ -126,7 +123,7 @@ Respond with a JSON object containing exactly these fields:
   }
 
   const parsed = JSON.parse(text);
-  return schema.parse(parsed);
+  return parsed as T;
 }
 
 export async function parseReferencedIds(text: string): Promise<{

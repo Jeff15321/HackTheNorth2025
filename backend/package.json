@@ -4,13 +4,16 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "build": "bun build src/index.ts --outdir ./dist --target node",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "test": "bun test"
   },
   "type": "module",
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/fluent-ffmpeg": "^2.1.27"
+    "@types/fluent-ffmpeg": "^2.1.27",
+    "@types/uuid": "^10.0.0",
+    "dotenv": "^16.4.5"
   },
   "peerDependencies": {
     "typescript": "^5"

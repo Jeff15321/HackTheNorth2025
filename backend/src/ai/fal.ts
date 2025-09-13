@@ -14,23 +14,47 @@ export function initFal() {
   console.log('🎬 fal.ai initialized');
 }
 
+export interface VideoGenerationOptions {
+  aspect_ratio?: 'auto' | '16:9' | '9:16';
+  duration?: '8s';
+  generate_audio?: boolean;
+  resolution?: '720p' | '1080p';
+}
+
 export async function generateVideoFromImage(
   imageUrl: string,
   prompt: string,
+  options: VideoGenerationOptions = {}
 ): Promise<string> {
   try {
     console.log(`🎬 Generating video from image: ${prompt.substring(0, 50)}...`);
 
-    const { request_id } = await fal.queue.submit("fal-ai/veo3/fast/image-to-video", {
+    const result = await fal.subscribe("fal-ai/veo3/fast/image-to-video", {
       input: {
         prompt: prompt,
-        image_url: imageUrl
-      }
+        image_url: imageUrl,
+        aspect_ratio: options.aspect_ratio || 'auto',
+        duration: options.duration || '8s',
+        generate_audio: options.generate_audio ?? true,
+        resolution: options.resolution || '720p'
+      } as any,
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          update.logs?.map((log: any) => log.message).forEach(console.log);
+        }
+      },
     });
 
-    console.log(`✅ Video generation job submitted: ${request_id}`);
+    const videoUrl = result.data?.video?.url;
     
-    return await waitForVideoResult(request_id, "fal-ai/veo3/fast/image-to-video");
+    if (!videoUrl) {
+      console.error('API Response structure:', JSON.stringify(result.data, null, 2));
+      throw new Error('No video URL found in result - check console for response structure');
+    }
+
+    console.log(`✅ Video generated: ${videoUrl}`);
+    return videoUrl;
   } catch (error) {
     console.error('❌ Error generating video from image:', error);
     throw new Error(`Video generation from image failed: ${error}`);
@@ -39,21 +63,39 @@ export async function generateVideoFromImage(
 
 export async function generateVideoFromText(
   prompt: string,
-  duration: number = 8
+  options: VideoGenerationOptions = {}
 ): Promise<string> {
   try {
     console.log(`🎬 Generating text-to-video: ${prompt.substring(0, 50)}...`);
 
-    const { request_id } = await fal.queue.submit("fal-ai/veo3/fast/text-to-video", {
+    // Note: Veo 3 documentation only shows image-to-video
+    // For text-to-video, we might need to use a different model or endpoint
+    // Let's try the text-to-video endpoint first
+    const result = await fal.subscribe("fal-ai/veo3/fast/text-to-video", {
       input: {
-        prompt: prompt
-      }
+        prompt: prompt,
+        aspect_ratio: options.aspect_ratio || 'auto',
+        duration: options.duration || '8s',
+        generate_audio: options.generate_audio ?? true,
+        resolution: options.resolution || '720p'
+      } as any,
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          update.logs?.map((log: any) => log.message).forEach(console.log);
+        }
+      },
     });
 
-    console.log(`✅ Text-to-video generation job submitted: ${request_id}`);
+    const videoUrl = result.data?.video?.url;
     
-    // Poll for completion
-    return await waitForVideoResult(request_id, "fal-ai/veo3/fast/text-to-video");
+    if (!videoUrl) {
+      console.error('API Response structure:', JSON.stringify(result.data, null, 2));
+      throw new Error('No video URL found in result - check console for response structure');
+    }
+
+    console.log(`✅ Video generated: ${videoUrl}`);
+    return videoUrl;
   } catch (error) {
     console.error('❌ Error generating text-to-video:', error);
     throw new Error(`Text-to-video generation failed: ${error}`);
@@ -79,19 +121,15 @@ async function waitForVideoResult(requestId: string, endpoint: string): Promise<
           requestId
         });
 
-        console.log('Full result:', JSON.stringify(result, null, 2));
-        
-        const videoUrl = result.data?.video?.url || 
-                        result.data?.video_url || 
-                        result.data?.url ||
-                        result.data?.video ||
-                        result.data?.output?.url ||
-                        result.data?.output;
-        
-        if (!videoUrl) {
-          console.error('API Response structure:', JSON.stringify(result.data, null, 2));
-          throw new Error('No video URL found in result - check console for response structure');
-        }
+    console.log('Full result:', JSON.stringify(result, null, 2));
+    
+    // According to Veo 3 documentation, video should be at result.data.video.url
+    const videoUrl = result.data?.video?.url;
+    
+    if (!videoUrl) {
+      console.error('API Response structure:', JSON.stringify(result.data, null, 2));
+      throw new Error('No video URL found in result - check console for response structure');
+    }
 
         console.log(`✅ Video generated: ${videoUrl}`);
         return videoUrl;
@@ -115,12 +153,11 @@ export async function generateVideoAsync(
   prompt: string,
   options: {
     imageUrl?: string;
-    duration?: number;
     webhookUrl?: string;
-  } = {}
+  } & VideoGenerationOptions = {}
 ): Promise<string> {
   try {
-    const { imageUrl, webhookUrl } = options;
+    const { imageUrl, webhookUrl, ...videoOptions } = options;
     
     console.log(`🎬 Submitting async video generation: ${prompt.substring(0, 50)}...`);
 
@@ -128,6 +165,10 @@ export async function generateVideoAsync(
     
     const input: any = {
       prompt: prompt,
+      aspect_ratio: videoOptions.aspect_ratio || 'auto',
+      duration: videoOptions.duration || '8s',
+      generate_audio: videoOptions.generate_audio ?? true,
+      resolution: videoOptions.resolution || '720p'
     };
 
     if (imageUrl) {
@@ -135,7 +176,7 @@ export async function generateVideoAsync(
     }
 
     const { request_id } = await fal.queue.submit(endpoint, {
-      input,
+      input: input as any,
       webhookUrl
     });
 
@@ -181,12 +222,8 @@ export async function getVideoResult(requestId: string, hasImage: boolean = fals
 
     console.log('Full result:', JSON.stringify(result, null, 2));
     
-    const videoUrl = result.data?.video?.url || 
-                    result.data?.video_url || 
-                    result.data?.url ||
-                    result.data?.video ||
-                    result.data?.output?.url ||
-                    result.data?.output;
+    // According to Veo 3 documentation, video should be at result.data.video.url
+    const videoUrl = result.data?.video?.url;
     
     if (!videoUrl) {
       console.error('API Response structure:', JSON.stringify(result.data, null, 2));
@@ -273,12 +310,16 @@ export async function testAvailableModels(): Promise<void> {
   }
 }
 
-export async function generateVideo(prompt: string, imageUrl?: string): Promise<string> {
+export async function generateVideo(
+  prompt: string, 
+  imageUrl?: string, 
+  options: VideoGenerationOptions = {}
+): Promise<string> {
   try {
     if (imageUrl) {
-      return await generateVideoFromImage(imageUrl, prompt);
+      return await generateVideoFromImage(imageUrl, prompt, options);
     } else {
-      return await generateVideoFromText(prompt);
+      return await generateVideoFromText(prompt, options);
     }
   } catch (error) {
     console.error('❌ Primary video generation failed:', error);

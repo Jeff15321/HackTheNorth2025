@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { generateText, generateJSON } from '../ai/gemini';
 import { DirectorRequestSchema } from '../models/schemas';
-import { z } from 'zod';
+import { SchemaType, type Schema } from '@google/generative-ai';
 import {
   storeConversationContext,
   getConversationContext,
@@ -10,16 +10,30 @@ import {
   type ConversationContext
 } from '../utils/conversation';
 
-const DirectorInitialResponseSchema = z.object({
-  director_response: z.string(),
-  suggested_questions: z.array(z.string()),
-  character_suggestions: z.array(z.object({
-    name: z.string(),
-    description: z.string()
-  })),
-  plot_outline: z.string(),
-  next_step: z.string()
-});
+const DirectorInitialResponseSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    director_response: { type: SchemaType.STRING },
+    suggested_questions: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
+    },
+    character_suggestions: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          name: { type: SchemaType.STRING },
+          description: { type: SchemaType.STRING }
+        },
+        required: ["name", "description"]
+      }
+    },
+    plot_outline: { type: SchemaType.STRING },
+    next_step: { type: SchemaType.STRING }
+  },
+  required: ["director_response", "suggested_questions", "character_suggestions", "plot_outline", "next_step"]
+} as Schema;
 
 const PAGE_PROMPTS = {
   '/dashboard': {
@@ -128,7 +142,13 @@ User preferences: ${JSON.stringify(preferences || {})}
 
 This is the very first interaction in our film development process. Welcome them warmly, respond to their concept with genuine enthusiasm, and help them begin developing their vision into a structured film project.`;
 
-      const directorResponse = await generateJSON(prompt, DirectorInitialResponseSchema, systemPrompt);
+      const directorResponse = await generateJSON<{
+        director_response: string;
+        suggested_questions: string[];
+        character_suggestions: Array<{ name: string; description: string }>;
+        plot_outline: string;
+        next_step: string;
+      }>(prompt, DirectorInitialResponseSchema, systemPrompt);
 
       const response = {
         conversation_id: conversationId,
@@ -385,7 +405,6 @@ Provide guidance and any relevant function calls to help the user.
     }
   });
 
-  // Get conversation messages
   fastify.get('/api/director/conversations/:conversation_id/messages', {
     schema: {
       tags: ['Director'],

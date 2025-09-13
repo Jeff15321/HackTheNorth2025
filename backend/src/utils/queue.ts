@@ -139,21 +139,28 @@ export async function getJobStatus(jobId: string) {
   const redis = getRedisClient();
   const key = `job:${jobId}:status`;
 
+  console.log(`🔍 [DEBUG] Getting job status for: ${jobId}`);
   const status = await redis.hGetAll(key);
+  console.log(`🔍 [DEBUG] Raw Redis data for ${jobId}:`, status);
 
   if (!status.status) {
+    console.log(`🔍 [DEBUG] No status found for job: ${jobId}`);
     return null;
   }
 
   let output_data = undefined;
   if (status.output_data) {
+    console.log(`🔍 [DEBUG] Raw output_data string:`, status.output_data);
     try {
       output_data = JSON.parse(status.output_data);
       console.log('✅ Successfully parsed output_data, keys:', Object.keys(output_data));
+      console.log('✅ Parsed output_data content:', JSON.stringify(output_data, null, 2));
     } catch (error) {
       console.error('❌ Failed to parse output_data:', error);
       console.error('Raw output_data value:', status.output_data);
     }
+  } else {
+    console.log(`🔍 [DEBUG] No output_data field found in Redis for job ${jobId}`);
   }
 
   const result = {
@@ -164,7 +171,7 @@ export async function getJobStatus(jobId: string) {
     error_message: status.error_message || undefined
   };
 
-  console.log('Final result object output_data keys:', Object.keys(result.output_data || {}));
+  console.log('🔍 [DEBUG] Final result object:', JSON.stringify(result, null, 2));
   return result;
 }
 
@@ -201,23 +208,27 @@ export async function getQueueInfo(jobType: JobType) {
 
 export function setupJobEventListeners() {
   for (const [jobType, events] of queueEvents.entries()) {
-    events.on('completed', ({ jobId, returnvalue }) => {
-      console.log(`Job completed: ${jobType} (${jobId})`);
-      console.log('Return value type:', typeof returnvalue);
-      console.log('Return value:', JSON.stringify(returnvalue, null, 2));
+    events.on('completed', async ({ jobId, returnvalue }) => {
+      console.log(`🎉 [QUEUE] Job completed: ${jobType} (${jobId})`);
+      console.log('🔍 [QUEUE] Return value type:', typeof returnvalue);
+      console.log('🔍 [QUEUE] Return value raw:', returnvalue);
+      console.log('🔍 [QUEUE] Return value JSON:', JSON.stringify(returnvalue, null, 2));
 
       let outputData: Record<string, unknown>;
       if (typeof returnvalue === 'string') {
         outputData = { result: returnvalue };
+        console.log('🔍 [QUEUE] Processed as string result');
       } else if (returnvalue && typeof returnvalue === 'object') {
         outputData = returnvalue as Record<string, unknown>;
+        console.log('🔍 [QUEUE] Processed as object, keys:', Object.keys(outputData));
       } else {
-        console.log('Warning: returnvalue is null, undefined, or unexpected type');
-        outputData = { raw_return: returnvalue };
+        console.log('⚠️  [QUEUE] Warning: returnvalue is null, undefined, or unexpected type');
+        console.log('🔍 [QUEUE] Exact returnvalue:', returnvalue, 'typeof:', typeof returnvalue);
+        outputData = { raw_return: returnvalue, debug_info: 'returnvalue_was_falsy_or_unexpected' };
       }
 
-      console.log('Processed output data:', JSON.stringify(outputData, null, 2));
-      updateJobStatus(jobId, 'completed', 100, outputData);
+      console.log('🔍 [QUEUE] Final processed output data:', JSON.stringify(outputData, null, 2));
+      await updateJobStatus(jobId, 'completed', 100, outputData);
     });
 
     events.on('failed', ({ jobId, failedReason }) => {

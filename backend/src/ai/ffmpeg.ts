@@ -8,6 +8,7 @@ export async function stitchVideos(
     height?: number;
     fps?: number;
     bitrate?: string;
+    fastConcat?: boolean; // for same-codec videos
   }
 ): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -16,15 +17,81 @@ export async function stitchVideos(
       return;
     }
 
+    const startTime = Date.now();
     console.log(`🎞️  Stitching ${videoPaths.length} videos...`);
+    console.log(`📂 Input videos:`, videoPaths);
+    console.log(`📁 Output path:`, outputPath);
+    console.log(`⚙️  Options:`, options);
+
+    // Use fast concat for same-codec videos
+    if (options?.fastConcat) {
+      const concatList = videoPaths.map(path => `file '${path}'`).join('\n');
+      const tempListPath = outputPath.replace('.mp4', '_list.txt');
+      
+      require('fs').writeFileSync(tempListPath, concatList);
+
+      ffmpeg()
+        .input(tempListPath)
+        .inputOptions(['-f concat', '-safe 0'])
+        .outputOptions(['-c copy']) // Copy streams without re-encoding
+        .on('start', (commandLine) => {
+          console.log(`🎞️  FFmpeg fast concat: ${commandLine}`);
+        })
+        .on('end', () => {
+          const duration = Date.now() - startTime;
+          console.log(`✅ Fast video stitching completed: ${outputPath}`);
+          console.log(`⏱️  Fast concat duration: ${duration}ms (${(duration/1000).toFixed(2)}s)`);
+          require('fs').unlinkSync(tempListPath);
+          resolve();
+        })
+        .on('error', (error) => {
+          console.error('🚨 FFmpeg fast concat error:', error);
+          console.error('📊 Error details:', {
+            message: error.message,
+            stack: error.stack,
+            videoPaths,
+            outputPath,
+            tempListPath
+          });
+          if (require('fs').existsSync(tempListPath)) {
+            require('fs').unlinkSync(tempListPath);
+          }
+          reject(new Error(`Video stitching failed: ${error.message}`));
+        })
+        .save(outputPath);
+      return;
+    }
 
     let command = ffmpeg();
-
+    
     videoPaths.forEach(videoPath => {
+      console.log(`📝 Adding input: ${videoPath}`);
       command = command.input(videoPath);
     });
 
+    let filterComplex = '';
+    
+    if (options?.width && options?.height) {
+      const scaleFilters = videoPaths.map((_, i) => `[${i}:v]scale=${options.width}:${options.height}[v${i}s]`).join(';');
+      const concatInputs = videoPaths.map((_, i) => `[v${i}s][${i}:a]`).join('');
+      filterComplex = `${scaleFilters};${concatInputs}concat=n=${videoPaths.length}:v=1:a=1[v][a]`;
+    } else {
+      const concatInputs = videoPaths.map((_, i) => `[${i}:v][${i}:a]`).join('');
+      filterComplex = `${concatInputs}concat=n=${videoPaths.length}:v=1:a=1[v][a]`;
+    }
+    
+    console.log(`🔧 Filter complex: ${filterComplex}`);
+
     command
+      .complexFilter(filterComplex)
+      .outputOptions([
+        '-map [v]',
+        '-map [a]',
+        '-c:v libx264',
+        '-c:a aac',
+        '-preset fast',
+        '-crf 23'
+      ])
       .on('start', (commandLine) => {
         console.log(`🎞️  FFmpeg command: ${commandLine}`);
       })
@@ -32,39 +99,31 @@ export async function stitchVideos(
         console.log(`🎞️  Stitching progress: ${Math.round(progress.percent || 0)}%`);
       })
       .on('end', () => {
+        const duration = Date.now() - startTime;
         console.log(`✅ Video stitching completed: ${outputPath}`);
+        console.log(`⏱️  Re-encoding duration: ${duration}ms (${(duration/1000).toFixed(2)}s)`);
         resolve();
       })
       .on('error', (error) => {
-        console.error('❌ FFmpeg error:', error);
+        console.error('🚨 FFmpeg re-encoding error:', error);
+        console.error('📊 Error details:', {
+          message: error.message,
+          stack: error.stack,
+          videoPaths,
+          outputPath,
+          options,
+          filterComplex
+        });
         reject(new Error(`Video stitching failed: ${error.message}`));
-      })
-      .complexFilter([
-        {
-          filter: 'concat',
-          options: {
-            n: videoPaths.length,
-            v: 1,
-            a: 1
-          }
-        }
-      ])
-      .outputOptions([
-        '-c:v libx264',
-        '-c:a aac',
-        '-preset fast',
-        '-crf 23'
-      ]);
-
-    if (options?.width && options?.height) {
-      command = command.size(`${options.width}x${options.height}`);
-    }
+      });
 
     if (options?.fps) {
+      console.log(`🎬 Setting FPS: ${options.fps}`);
       command = command.fps(options.fps);
     }
 
     if (options?.bitrate) {
+      console.log(`💾 Setting bitrate: ${options.bitrate}`);
       command = command.videoBitrate(options.bitrate);
     }
 
@@ -72,113 +131,83 @@ export async function stitchVideos(
   });
 }
 
-export async function convertVideo(
-  inputPath: string,
+export async function addMusicToVideo(
+  videoPath: string,
+  musicPath: string,
   outputPath: string,
   options?: {
-    format?: string;
-    width?: number;
-    height?: number;
-    fps?: number;
-    bitrate?: string;
+    videoVolume?: number; // 0.0 to 1.0
+    musicVolume?: number; // 0.0 to 1.0
+    fadeInDuration?: number; // seconds
+    fadeOutDuration?: number; // seconds
   }
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    console.log(`🔄 Converting video: ${inputPath} -> ${outputPath}`);
+    const startTime = Date.now();
+    console.log(`🎵 Adding music to video: ${videoPath} + ${musicPath}`);
+    console.log(`📂 Video path:`, videoPath);
+    console.log(`🎶 Music path:`, musicPath);
+    console.log(`📁 Output path:`, outputPath);
+    console.log(`⚙️  Music options:`, options);
 
-    let command = ffmpeg(inputPath);
+    const videoVolume = options?.videoVolume ?? 1.0;
+    const musicVolume = options?.musicVolume ?? 0.5;
+    const fadeIn = options?.fadeInDuration ?? 0;
+    const fadeOut = options?.fadeOutDuration ?? 0;
+    
+    console.log(`🔊 Volume settings - Video: ${videoVolume}, Music: ${musicVolume}`);
+    console.log(`🎚️  Fade settings - In: ${fadeIn}s, Out: ${fadeOut}s`);
 
-    if (options?.width && options?.height) {
-      command = command.size(`${options.width}x${options.height}`);
+    let audioFilter = `[1:a]volume=${musicVolume}`;
+    
+    if (fadeIn > 0) {
+      audioFilter += `,afade=t=in:ss=0:d=${fadeIn}`;
     }
-
-    if (options?.fps) {
-      command = command.fps(options.fps);
+    
+    if (fadeOut > 0) {
+      audioFilter += `,afade=t=out:st=0:d=${fadeOut}`;
     }
+    
+    audioFilter += `[music];[0:a]volume=${videoVolume}[video];[video][music]amix=inputs=2:duration=first:dropout_transition=2[outa]`;
+    
+    console.log(`🔧 Audio filter: ${audioFilter}`);
 
-    if (options?.bitrate) {
-      command = command.videoBitrate(options.bitrate);
-    }
-
-    if (options?.format) {
-      command = command.format(options.format);
-    }
-
-    command
+    ffmpeg()
+      .input(videoPath)
+      .input(musicPath)
+      .complexFilter([audioFilter])
+      .outputOptions([
+        '-map 0:v',
+        '-map [outa]',
+        '-c:v copy',
+        '-c:a aac',
+        '-shortest'
+      ])
       .on('start', (commandLine) => {
-        console.log(`🔄 FFmpeg command: ${commandLine}`);
+        console.log(`🎵 FFmpeg command: ${commandLine}`);
       })
       .on('progress', (progress) => {
-        console.log(`🔄 Conversion progress: ${Math.round(progress.percent || 0)}%`);
+        console.log(`🎵 Music mixing progress: ${Math.round(progress.percent || 0)}%`);
       })
       .on('end', () => {
-        console.log(`✅ Video conversion completed: ${outputPath}`);
+        const duration = Date.now() - startTime;
+        console.log(`✅ Music added to video: ${outputPath}`);
+        console.log(`⏱️  Music mixing duration: ${duration}ms (${(duration/1000).toFixed(2)}s)`);
         resolve();
       })
       .on('error', (error) => {
-        console.error('❌ FFmpeg conversion error:', error);
-        reject(new Error(`Video conversion failed: ${error.message}`));
+        console.error('🚨 FFmpeg music error:', error);
+        console.error('📊 Music error details:', {
+          message: error.message,
+          stack: error.stack,
+          videoPath,
+          musicPath,
+          outputPath,
+          options,
+          audioFilter
+        });
+        reject(new Error(`Adding music failed: ${error.message}`));
       })
       .save(outputPath);
-  });
-}
-
-export async function getVideoInfo(videoPath: string): Promise<{
-  duration: number;
-  width: number;
-  height: number;
-  fps: number;
-  bitrate: number;
-}> {
-  return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(videoPath, (error, metadata) => {
-      if (error) {
-        console.error('❌ Error getting video info:', error);
-        reject(new Error(`Failed to get video info: ${error.message}`));
-        return;
-      }
-
-      const videoStream = metadata.streams.find(stream => stream.codec_type === 'video');
-
-      if (!videoStream) {
-        reject(new Error('No video stream found'));
-        return;
-      }
-
-      resolve({
-        duration: metadata.format.duration || 0,
-        width: videoStream.width || 0,
-        height: videoStream.height || 0,
-        fps: videoStream.r_frame_rate ? parseFloat(videoStream.r_frame_rate.split('/')[0] || '0') / parseFloat(videoStream.r_frame_rate.split('/')[1] || '1') : 0,
-        bitrate: metadata.format.bit_rate ? parseInt(String(metadata.format.bit_rate)) : 0
-      });
-    });
-  });
-}
-
-export async function extractFrameFromVideo(
-  videoPath: string,
-  outputPath: string,
-  timeSeconds: number = 0
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    console.log(`📸 Extracting frame at ${timeSeconds}s from ${videoPath}`);
-
-    ffmpeg(videoPath)
-      .seekInput(timeSeconds)
-      .frames(1)
-      .output(outputPath)
-      .on('start', (commandLine) => {
-        console.log(`📸 FFmpeg command: ${commandLine}`);
-      })
-      .on('end', () => {
-        console.log(`✅ Frame extracted: ${outputPath}`);
-        resolve();
-      })
-      .on('error', (error) => {
-        console.error('❌ Frame extraction error:', error);
-        reject(new Error(`Frame extraction failed: ${error.message}`));
-      })
-      .run();
   });
 }

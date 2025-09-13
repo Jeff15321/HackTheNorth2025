@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 export const ProjectSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   title: z.string(),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
+  created_at: z.iso.datetime(),
+  updated_at: z.iso.datetime(),
   summary: z.string(),
   plot: z.string()
 });
@@ -20,7 +20,8 @@ export const CharacterSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
   media_url: z.string().url().optional(),
-  metadata: CharacterMetadataSchema
+  metadata: CharacterMetadataSchema,
+  created_at: z.string().datetime().optional()
 });
 
 export const SceneMetadataSchema = z.object({
@@ -47,7 +48,8 @@ export const ObjectSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
   media_url: z.string().url().optional(),
-  metadata: ObjectMetadataSchema
+  metadata: ObjectMetadataSchema,
+  created_at: z.string().datetime().optional()
 });
 
 export const FrameMetadataSchema = z.object({

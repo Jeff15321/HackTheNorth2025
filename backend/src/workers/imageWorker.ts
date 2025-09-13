@@ -14,7 +14,22 @@ export function createImageWorkers() {
   const characterGenerationWorker = new Worker(
     'character-generation',
     async (job: Job) => {
-      return processImageGeneration(job);
+      console.log(`🚨 [WORKER DEBUG] ========================================`);
+      console.log(`🚨 [WORKER DEBUG] WORKER CALLED! Job: ${job.id}`);
+      console.log(`🚨 [WORKER DEBUG] ========================================`);
+
+      try {
+        const result = await processImageGeneration(job);
+        console.log(`🚨 [WORKER DEBUG] Job ${job.id} completed successfully!`);
+        console.log(`🚨 [WORKER DEBUG] Result:`, JSON.stringify(result, null, 2));
+        console.log(`🚨 [WORKER DEBUG] ========================================`);
+        return result;
+      } catch (error) {
+        console.error(`🚨 [WORKER DEBUG] Job ${job.id} FAILED!`);
+        console.error(`🚨 [WORKER DEBUG] Error:`, error);
+        console.error(`🚨 [WORKER DEBUG] ========================================`);
+        throw error;
+      }
     },
     { connection, concurrency: 3 }
   );
@@ -40,78 +55,28 @@ export function createImageWorkers() {
 }
 
 async function processImageGeneration(job: Job) {
-  const { project_id, input_data } = job.data;
-  const { prompt, type, width, height, metadata } = input_data;
+  console.log('🚨 [WORKER] processImageGeneration started for job:', job.id);
+
+  // Start with a simple test return
+  console.log('🚨 [WORKER] Testing simple return...');
 
   try {
-    await updateJobStatus(job.id!, 'processing', 10);
-
-    console.log(`🖼️  Generating ${type}: ${prompt.substring(0, 50)}...`);
-
     await updateJobStatus(job.id!, 'processing', 30);
 
-    const imageBuffer = await generateImage(prompt, { width, height });
-
-    await updateJobStatus(job.id!, 'processing', 70);
-
-    const filename = generateAssetFilename(type, 'png', metadata?.name);
-    const imageUrl = await saveBlobFile(project_id, type, filename, imageBuffer);
-
-    await updateJobStatus(job.id!, 'processing', 90);
-
-    let result = {
-      type,
-      image_url: imageUrl,
-      filename,
-      prompt,
-      metadata,
-      file_size: imageBuffer.length
+    // Simple test - just return a basic object
+    const testResult = {
+      test: 'success',
+      job_id: job.id,
+      character_id: 'test-character-id-12345',
+      message: 'This is a test result to verify worker return'
     };
 
-    if (type === 'characters') {
-      const character = await createCharacter({
-        project_id,
-        media_url: imageUrl,
-        metadata: {
-          name: metadata?.name || 'Unnamed Character',
-          description: prompt,
-          personality: metadata?.personality || 'Unknown personality'
-        }
-      });
+    console.log('🚨 [WORKER] About to return test result:', JSON.stringify(testResult, null, 2));
 
-      result = {
-        ...result,
-        character_id: character.id,
-        character: {
-          ...character,
-          created_at: character.created_at?.toString()
-        }
-      } as any;
-    } else if (type === 'objects') {
-      const object = await createObject({
-        project_id,
-        media_url: imageUrl,
-        metadata: {
-          type: metadata?.type || 'object',
-          description: prompt,
-          environmental_context: metadata?.environmental_context || 'General environment'
-        }
-      });
+    return testResult;
 
-      result = {
-        ...result,
-        object_id: object.id,
-        object: {
-          ...object,
-          created_at: object.created_at?.toString()
-        }
-      } as any;
-    }
-
-    console.log(`✅ Image generated: ${type} (${imageBuffer.length} bytes)`);
-    return result;
   } catch (error) {
-    console.error(`❌ Image generation failed for job ${job.id}:`, error);
+    console.error('🚨 [WORKER] Error in test worker:', error);
     throw error;
   }
 }

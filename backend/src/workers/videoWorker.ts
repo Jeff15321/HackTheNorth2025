@@ -1,5 +1,5 @@
 import { Worker, Job } from 'bullmq';
-import { generateVideoFromImage, generateVideoFromText, downloadVideo } from '../ai/fal.js';
+import { generateVideoFromImage, generateVideoFromText, downloadVideo, type VideoGenerationOptions } from '../ai/fal.js';
 import { saveBlobFile, generateAssetFilename } from '../utils/blob.js';
 import { updateJobStatus } from '../utils/queue.js';
 
@@ -31,14 +31,21 @@ async function processVideoGeneration(job: Job) {
 
     console.log(`🎬 Generating video: ${prompt.substring(0, 50)}...`);
 
+    const videoOptions: VideoGenerationOptions = {
+      aspect_ratio: '16:9',
+      duration: '8s',
+      generate_audio: true,
+      resolution: '720p'
+    };
+
     let videoUrl: string;
 
     if (image_url) {
       await updateJobStatus(job.id!, 'processing', 20);
-      videoUrl = await generateVideoFromImage(image_url, prompt);
+      videoUrl = await generateVideoFromImage(image_url, prompt, videoOptions);
     } else {
       await updateJobStatus(job.id!, 'processing', 20);
-      videoUrl = await generateVideoFromText(prompt);
+      videoUrl = await generateVideoFromText(prompt, videoOptions);
     }
 
     await updateJobStatus(job.id!, 'processing', 60);
@@ -61,6 +68,7 @@ async function processVideoGeneration(job: Job) {
       prompt,
       image_url,
       metadata,
+      options: videoOptions,
       file_size: videoBuffer.length
     };
 

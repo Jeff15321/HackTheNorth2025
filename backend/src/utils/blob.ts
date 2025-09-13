@@ -11,7 +11,7 @@ export async function initBlobStore() {
     await mkdir(BLOB_BASE_PATH, { recursive: true });
     console.log('💾 Blob store initialized');
   } catch (error) {
-    console.error('❌ Error initializing blob store:', error);
+    console.error('🚨 Error initializing blob store:', error);
     throw error;
   }
 }
@@ -40,7 +40,7 @@ export async function saveBlobFile(
     console.log(`💾 Saved blob: ${url}`);
     return url;
   } catch (error) {
-    console.error('❌ Error saving blob file:', error);
+    console.error('🚨 Error saving blob file:', error);
     throw new Error(`Failed to save blob file: ${error}`);
   }
 }
@@ -52,7 +52,7 @@ export async function getBlobFile(projectId: string, type: AssetType, filename: 
     const data = await readFile(filePath);
     return data;
   } catch (error) {
-    console.error('❌ Error reading blob file:', error);
+    console.error('🚨 Error reading blob file:', error);
     throw new Error(`Failed to read blob file: ${error}`);
   }
 }
@@ -75,7 +75,7 @@ export async function deleteBlobFile(projectId: string, type: AssetType, filenam
     console.log(`🗑️  Deleted blob: ${getBlobUrl(projectId, type, filename)}`);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error('❌ Error deleting blob file:', error);
+      console.error('🚨 Error deleting blob file:', error);
       throw new Error(`Failed to delete blob file: ${error}`);
     }
   }
@@ -116,7 +116,7 @@ export async function cleanupProjectBlobs(projectId: string): Promise<void> {
     await rm(projectPath, { recursive: true, force: true });
     console.log(`🧹 Cleaned up blobs for project: ${projectId}`);
   } catch (error) {
-    console.error('❌ Error cleaning up project blobs:', error);
+    console.error('🚨 Error cleaning up project blobs:', error);
   }
 }
 

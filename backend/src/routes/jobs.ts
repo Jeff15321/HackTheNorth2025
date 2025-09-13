@@ -304,7 +304,10 @@ export async function jobRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
+
+      console.log('🔍 [API] Getting job status for:', id);
       const status = await getJobStatus(id);
+      console.log('🔍 [API] Raw status from getJobStatus:', JSON.stringify(status, null, 2));
 
       if (!status) {
         return reply.status(404).send({
@@ -314,6 +317,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
         });
       }
 
+      console.log('🔍 [API] About to send response:', JSON.stringify(status, null, 2));
       reply.send(status);
     } catch (error: any) {
       fastify.log.error('Error fetching job status:', error);
@@ -367,6 +371,39 @@ export async function jobRoutes(fastify: FastifyInstance) {
         message: error.message || 'Failed to cancel job',
         statusCode: 500
       }));
+    }
+  });
+
+  fastify.get('/api/debug/job/:id/status', {
+    schema: {
+      ...jobsSchema,
+      summary: 'Debug job status - direct function call',
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['id']
+      }
+    }
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    console.log('🚨 [DEBUG ENDPOINT] Called for job:', id);
+
+    try {
+      const status = await getJobStatus(id);
+      console.log('🚨 [DEBUG ENDPOINT] Function returned:', JSON.stringify(status, null, 2));
+
+      reply.send({
+        debug: true,
+        job_id: id,
+        function_result: status,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('🚨 [DEBUG ENDPOINT] Error:', error);
+      reply.status(500).send({ error: error.message });
     }
   });
 
