@@ -13,7 +13,7 @@ export function getCharacters(spacing: number): CharacterDef[] {
     { position: [spacing,   spacing / 2, 0], color: "#F472B6", label: "character_3", pageId: "character_3", focusedOffset: [-2 * spacing, -spacing / 2] },
     { position: [-spacing, -spacing / 2, 0], color: "#F59E0B", label: "character_4", pageId: "character_4", focusedOffset: [0, spacing / 2] },
     { position: [0,        -spacing / 2, 0], color: "#A78BFA", label: "character_5", pageId: "character_5", focusedOffset: [-spacing, spacing / 2] },
-    { position: [spacing,  -spacing / 2, 0], color: "#10B981", label: "character_6", pageId: "character_6", focusedOffset: [-2 * spacing, spacing / 2] },
+    { position: [spacing,  -spacing / 2, 0], color: "#10B981", label: "character_6", pageId: "character_6", focusedOffset: [-5, spacing / 2] },
   ];
 }
 

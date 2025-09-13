@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
 import * as THREE from "three";
 
@@ -12,16 +12,16 @@ export type Hero3DProps = {
   position?: Vector3Tuple;
   index?: number;
   pageId?: string;
+  zoomActive?: boolean;
 };
 
-export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], index = 0, pageId }: Hero3DProps) {
+export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], index = 0, pageId, zoomActive = false }: Hero3DProps) {
   const groupRef = useRef<THREE.Group>(null);
   const targetRotation = useRef(new THREE.Euler());
   const targetScale = useRef(1);
   const [hovered, setHovered] = useState(false);
   const select = useSceneStore((s) => s.select);
   const openPage = useSceneStore((s) => s.openPage);
-  const focusModel = useSceneStore((s) => s.focusModel);
 
   // Geometries
   const bodyGeometry = useMemo(() => new THREE.CylinderGeometry(0.8, 0.8, 2, 32), []);
@@ -45,7 +45,8 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
   useFrame(({ mouse }, delta) => {
     const maxTilt = Math.PI / 6; // 30deg
     const targetX = -mouse.y * maxTilt;
-    const targetY = mouse.x * maxTilt;
+    let targetY = mouse.x * maxTilt;
+    if (zoomActive) targetY += 1;
     targetRotation.current.set(targetX, targetY, 0);
     targetScale.current = hovered ? 1.08 : 1.0;
 
@@ -72,6 +73,18 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
       groupRef.current.scale.setScalar(s);
     }
   });
+
+  useEffect(() => {
+    if (groupRef.current) {
+      if (zoomActive) {
+        groupRef.current.position.x = position[0] - 2;
+      } else {
+        groupRef.current.position.x = position[0];
+      }
+    }
+  }, [zoomActive]);
+
+  // Note: x-shift on click is gated by zoomActive; no automatic reset
 
   return (
     <group

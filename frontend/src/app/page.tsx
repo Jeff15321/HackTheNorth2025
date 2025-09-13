@@ -13,6 +13,7 @@ import * as THREE from "three";
 export default function Home() {
   const spacing = 3.2;
   const instances = getCharacters(spacing);
+  const [currentIndex, setCurrentIndex] = useState(0);
   // Selectors retained only for future use; can be removed if unused
   // const selectedIndex = useSceneStore((s) => s.selectedIndex);
   // const sidebarVisible = useSceneStore((s) => s.sidebarVisible);
@@ -20,9 +21,12 @@ export default function Home() {
   const idleCameraPos = useSceneStore((s) => s.idleCameraPos);
   const focusedModelIndex = useSceneStore((s) => s.focusedModelIndex);
   const clearFocus = useSceneStore((s) => s.clearFocus);
-  const focusModel = useSceneStore((s) => s.focusModel);
   const setCameraTarget = useSceneStore((s) => s.setCameraTarget);
   const completed = useSceneStore((s) => s.completed);
+  const selectedPageId = useSceneStore((s) => s.selectedPageId);
+  const closePage = useSceneStore((s) => s.closePage);
+  const openPage = useSceneStore((s) => s.openPage);
+  const focusModel = useSceneStore((s) => s.focusModel);
   const [panelOpen, setPanelOpen] = useState(false);
   // const resetSelectionAndCamera = useSceneStore((s) => s.resetSelectionAndCamera);
 
@@ -45,16 +49,28 @@ export default function Home() {
 
   function goNext() {
     const len = instances.length;
-    const current = focusedModelIndex ?? -1;
-    const next = (current + 1 + len) % len;
-    focusModel(next);
+    if (!selectedPageId) {
+      closePage();
+      setCurrentIndex((prev) => (prev + 1) % len);
+    } else {
+      const current = (focusedModelIndex ?? currentIndex);
+      const next = (current + 1) % len;
+      focusModel(next);
+      openPage(instances[next].pageId);
+    }
   }
 
   function goPrev() {
     const len = instances.length;
-    const current = focusedModelIndex ?? 0;
-    const prev = (current - 1 + len) % len;
-    focusModel(prev);
+    if (!selectedPageId) {
+      closePage();
+      setCurrentIndex((prev) => (prev - 1 + len) % len);
+    } else {
+      const current = (focusedModelIndex ?? currentIndex);
+      const prev = (current - 1 + len) % len;
+      focusModel(prev);
+      openPage(instances[prev].pageId);
+    }
   }
 
   const total = instances.length;
@@ -66,15 +82,13 @@ export default function Home() {
         <Scene3D>
           <CameraRig target={cameraTarget ?? undefined} zOffset={3.5} idlePosition={idleCameraPos} />
           {focusedModelIndex === null ? (
-            instances.map((inst, idx) => (
-              <Hero3D
-                key={idx}
-                index={idx}
-                position={inst.position}
-                bodyColor={inst.color}
-                pageId={inst.pageId}
-              />
-            ))
+            <Hero3D
+              index={currentIndex}
+              position={instances[currentIndex].position}
+              bodyColor={instances[currentIndex].color}
+              pageId={instances[currentIndex].pageId}
+              zoomActive={!!selectedPageId}
+            />
           ) : (
             // Render only the focused model centered at origin for emphasis
             <group >
@@ -88,6 +102,7 @@ export default function Home() {
                 })()}
                 bodyColor={instances[focusedModelIndex]?.color}
                 pageId={instances[focusedModelIndex]?.pageId}
+                zoomActive={!!selectedPageId}
               />
             </group>
           )}
@@ -114,7 +129,7 @@ export default function Home() {
         <ModelSwitcherPanel
           isOpen={panelOpen}
           onClose={() => setPanelOpen(false)}
-          onSelectIndex={(idx) => focusModel(idx)}
+          onSelectIndex={(idx) => { closePage(); setCurrentIndex(idx); }}
           onShowAll={() => clearFocus()}
           buttonLabels={instances.map((_, idx) => `Show Character ${idx + 1}`)}
         />
