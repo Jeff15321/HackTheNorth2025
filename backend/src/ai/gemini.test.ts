@@ -63,13 +63,28 @@ describe('generateText', () => {
 });
 
 describe('generateCharacterDescription', () => {
-  test('generates character description object', async () => {
+  test('generates complete character description object', async () => {
     try {
       const result = await generateCharacterDescription('John', 'A brave knight');
       expect(result).toHaveProperty('name');
+      expect(result).toHaveProperty('role');
       expect(result).toHaveProperty('age');
+      expect(result).toHaveProperty('personality');
+      expect(result).toHaveProperty('description');
+      expect(result).toHaveProperty('backstory');
+
       expect(typeof result.name).toBe('string');
+      expect(typeof result.role).toBe('string');
       expect(typeof result.age).toBe('number');
+      expect(typeof result.personality).toBe('string');
+      expect(typeof result.description).toBe('string');
+      expect(typeof result.backstory).toBe('string');
+
+      expect(result.name.length).toBeGreaterThan(0);
+      expect(result.role.length).toBeGreaterThan(0);
+      expect(result.personality.length).toBeGreaterThan(10);
+      expect(result.description.length).toBeGreaterThan(10);
+      expect(result.backstory.length).toBeGreaterThan(10);
     } catch (error) {
       console.log('Character generation may have failed due to LLM response format:', (error as Error).message);
       expect((error as Error).message).toContain('Failed to generate valid character description');
@@ -80,7 +95,14 @@ describe('generateCharacterDescription', () => {
     try {
       const result = await generateCharacterDescription('Alice', 'A mysterious wizard');
       expect(typeof result.name).toBe('string');
+      expect(typeof result.role).toBe('string');
       expect(typeof result.age).toBe('number');
+      expect(typeof result.personality).toBe('string');
+      expect(typeof result.description).toBe('string');
+      expect(typeof result.backstory).toBe('string');
+
+      expect(result.name).toBe('Alice');
+      expect(['Protagonist', 'Antagonist', 'Supporting']).toContain(result.role);
     } catch (error) {
       console.log('Character generation may have failed due to LLM response format:', (error as Error).message);
       expect((error as Error).message).toContain('Failed to generate valid character description');

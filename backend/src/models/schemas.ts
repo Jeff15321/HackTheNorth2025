@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+// URL validation for Supabase storage URLs
+const SupabaseUrlSchema = z.string().url().refine(
+  (url) => url.includes('supabase') || url.startsWith('data:'),
+  { message: "URL must be a Supabase storage URL or data URL" }
+);
+
 export const ProjectSchema = z.object({
   id: z.uuid(),
   title: z.string(),
@@ -11,15 +17,17 @@ export const ProjectSchema = z.object({
 
 export const CharacterMetadataSchema = z.object({
   name: z.string(),
-  age: z.number().optional(),
+  role: z.string().optional(),
+  age: z.number(),
   personality: z.string(),
-  description: z.string()
+  description: z.string(),
+  backstory: z.string().optional()
 });
 
 export const CharacterSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  media_url: SupabaseUrlSchema.optional(),
   metadata: CharacterMetadataSchema,
   created_at: z.string().datetime().optional()
 });
@@ -27,14 +35,14 @@ export const CharacterSchema = z.object({
 export const SceneMetadataSchema = z.object({
   detailed_plot: z.string(),
   concise_plot: z.string(),
-  duration: z.number().optional(),
-  dialogue: z.string().optional()
+  dialogue: z.string(),
+  scene_order: z.number()
 });
 
 export const SceneSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  media_url: SupabaseUrlSchema.optional(),
   metadata: SceneMetadataSchema
 });
 
@@ -47,23 +55,45 @@ export const ObjectMetadataSchema = z.object({
 export const ObjectSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  scene_id: z.string().uuid().optional(),
+  media_url: SupabaseUrlSchema.optional(),
   metadata: ObjectMetadataSchema,
   created_at: z.string().datetime().optional()
 });
 
 export const FrameMetadataSchema = z.object({
   veo3_prompt: z.string(),
-  dialogue: z.string().optional(),
-  duration_constraint: z.number(),
-  split_reason: z.string().optional()
+  dialogue: z.string(),
+  summary: z.string(),
+  split_reason: z.string(),
+  frame_order: z.number()
 });
 
 export const FrameSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  scene_id: z.string().uuid().optional(),
+  media_url: SupabaseUrlSchema.optional(),
   metadata: FrameMetadataSchema
+});
+
+// Storage-related schemas
+export const StorageConfigSchema = z.object({
+  bucket: z.string(),
+  folder: z.string().optional()
+});
+
+export const UploadResultSchema = z.object({
+  url: z.string().url(),
+  path: z.string(),
+  size: z.number()
+});
+
+export const StorageUploadSchema = z.object({
+  buffer: z.instanceof(Buffer),
+  fileName: z.string(),
+  mimeType: z.string(),
+  config: StorageConfigSchema.optional()
 });
 
 export const JobStatusSchema = z.enum(['pending', 'processing', 'completed', 'failed']);
@@ -76,7 +106,9 @@ export const JobTypeSchema = z.enum([
   'video-generation',
   'video-stitching',
   'script-generation',
-  'image-editing'
+  'image-editing',
+  'object-analysis',
+  'frame-analysis'
 ]);
 
 export const JobSchema = z.object({
@@ -129,3 +161,6 @@ export type DirectorFunctionCall = z.infer<typeof DirectorFunctionCallSchema>;
 export type DirectorRequest = z.infer<typeof DirectorRequestSchema>;
 export type CreateProject = z.infer<typeof CreateProjectSchema>;
 export type CreateJob = z.infer<typeof CreateJobSchema>;
+export type StorageConfig = z.infer<typeof StorageConfigSchema>;
+export type UploadResult = z.infer<typeof UploadResultSchema>;
+export type StorageUpload = z.infer<typeof StorageUploadSchema>;

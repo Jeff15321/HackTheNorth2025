@@ -6,7 +6,7 @@ import { createLLMWorker } from './llmWorker.js';
 export function initAllWorkers() {
   console.log('🏭 Initializing all workers...');
 
-  const { characterGenerationWorker, objectGenerationWorker, imageEditingWorker } = createImageWorkers();
+  const { characterGenerationWorker, objectGenerationWorker, imageEditingWorker, frameGenerationWorker, sceneGenerationWorker } = createImageWorkers();
   const videoWorker = createVideoWorker();
   const stitchingWorker = createStitchingWorker();
   const { llmWorker, sceneWorker, frameWorker } = createLLMWorker();
@@ -15,6 +15,8 @@ export function initAllWorkers() {
     characterGenerationWorker,
     objectGenerationWorker,
     imageEditingWorker,
+    frameGenerationWorker,
+    sceneGenerationWorker,
     videoWorker,
     stitchingWorker,
     llmWorker,

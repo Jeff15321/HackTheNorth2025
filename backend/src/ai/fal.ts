@@ -41,7 +41,9 @@ export async function generateVideoFromImage(
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === "IN_PROGRESS") {
-          update.logs?.map((log: any) => log.message).forEach(console.log);
+          update.logs?.map((log: any) => log.message).forEach((msg: string) => {
+            console.log(msg.length > 200 ? `${msg.substring(0, 200)}... (truncated ${msg.length} chars)` : msg);
+          });
         }
       },
     });
@@ -49,7 +51,7 @@ export async function generateVideoFromImage(
     const videoUrl = result.data?.video?.url;
     
     if (!videoUrl) {
-      console.error('API Response structure:', JSON.stringify(result.data, null, 2));
+      console.error('API Response structure keys:', Object.keys(result.data || {}));
       throw new Error('No video URL found in result - check console for response structure');
     }
 
@@ -82,7 +84,9 @@ export async function generateVideoFromText(
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === "IN_PROGRESS") {
-          update.logs?.map((log: any) => log.message).forEach(console.log);
+          update.logs?.map((log: any) => log.message).forEach((msg: string) => {
+            console.log(msg.length > 200 ? `${msg.substring(0, 200)}... (truncated ${msg.length} chars)` : msg);
+          });
         }
       },
     });
@@ -90,7 +94,7 @@ export async function generateVideoFromText(
     const videoUrl = result.data?.video?.url;
     
     if (!videoUrl) {
-      console.error('API Response structure:', JSON.stringify(result.data, null, 2));
+      console.error('API Response structure keys:', Object.keys(result.data || {}));
       throw new Error('No video URL found in result - check console for response structure');
     }
 
@@ -121,13 +125,13 @@ async function waitForVideoResult(requestId: string, endpoint: string): Promise<
           requestId
         });
 
-    console.log('Full result:', JSON.stringify(result, null, 2));
+    console.log('Result keys:', Object.keys(result.data || {}));
     
     // According to Veo 3 documentation, video should be at result.data.video.url
     const videoUrl = result.data?.video?.url;
     
     if (!videoUrl) {
-      console.error('API Response structure:', JSON.stringify(result.data, null, 2));
+      console.error('API Response structure keys:', Object.keys(result.data || {}));
       throw new Error('No video URL found in result - check console for response structure');
     }
 
@@ -220,13 +224,13 @@ export async function getVideoResult(requestId: string, hasImage: boolean = fals
       requestId
     });
 
-    console.log('Full result:', JSON.stringify(result, null, 2));
+    console.log('Result keys:', Object.keys(result.data || {}));
     
     // According to Veo 3 documentation, video should be at result.data.video.url
     const videoUrl = result.data?.video?.url;
     
     if (!videoUrl) {
-      console.error('API Response structure:', JSON.stringify(result.data, null, 2));
+      console.error('API Response structure keys:', Object.keys(result.data || {}));
       throw new Error('No video URL found in result - check console for response structure');
     }
 

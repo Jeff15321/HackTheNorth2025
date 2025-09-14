@@ -102,7 +102,6 @@ export async function addJob(jobType: JobType, jobData: JobData): Promise<Job> {
   const job = await queue.add(jobType, jobData, {
     jobId: jobData.id,
     priority: getJobPriority(jobType),
-    delay: getJobDelay(jobType)
   });
 
   console.log(`➕ Added job: ${jobType} (${job.id})`);
@@ -121,7 +120,7 @@ export async function updateJobStatus(
   const redis = getRedisClient();
   const key = `job:${jobId}:status`;
 
-  console.log(`Updating job ${jobId} status to ${status} with outputData:`, outputData);
+  console.log(`Updating job ${jobId} status to ${status} with outputData keys:`, outputData ? Object.keys(outputData) : 'none');
 
   const statusData = {
     status,
@@ -131,7 +130,7 @@ export async function updateJobStatus(
     ...(errorMessage && { error_message: errorMessage })
   };
 
-  console.log(`Status data being written to Redis:`, statusData);
+  console.log(`Status data keys being written to Redis:`, Object.keys(statusData));
 
   await redis.hSet(key, statusData);
   console.log(`Job ${jobId}: ${status} (${progress}%)`);
@@ -143,7 +142,7 @@ export async function getJobStatus(jobId: string) {
 
   console.log(`🔍 [DEBUG] Getting job status for: ${jobId}`);
   const status = await redis.hGetAll(key);
-  console.log(`🔍 [DEBUG] Raw Redis data for ${jobId}:`, status);
+  console.log(`🔍 [DEBUG] Raw Redis data keys for ${jobId}:`, Object.keys(status));
 
   if (!status.status) {
     console.log(`🔍 [DEBUG] No status found for job: ${jobId}`);
@@ -152,14 +151,13 @@ export async function getJobStatus(jobId: string) {
 
   let output_data = undefined;
   if (status.output_data) {
-    console.log(`🔍 [DEBUG] Raw output_data string:`, status.output_data);
+    console.log(`🔍 [DEBUG] Raw output_data string length:`, status.output_data.length);
     try {
       output_data = JSON.parse(status.output_data);
       console.log('✅ Successfully parsed output_data, keys:', Object.keys(output_data));
-      console.log('✅ Parsed output_data content:', JSON.stringify(output_data, null, 2));
     } catch (error) {
       console.error('❌ Failed to parse output_data:', error);
-      console.error('Raw output_data value:', status.output_data);
+      console.error('Raw output_data length:', status.output_data.length);
     }
   } else {
     console.log(`🔍 [DEBUG] No output_data field found in Redis for job ${jobId}`);
@@ -173,7 +171,7 @@ export async function getJobStatus(jobId: string) {
     error_message: status.error_message || undefined
   };
 
-  console.log('🔍 [DEBUG] Final result object:', JSON.stringify(result, null, 2));
+  console.log('🔍 [DEBUG] Final result keys:', result ? Object.keys(result) : 'none');
   return result;
 }
 
@@ -218,8 +216,11 @@ export function setupJobEventListeners() {
       console.log(`🚨 [QUEUE EVENT] ========================================`);
       console.log(`🎉 [QUEUE EVENT] Job completed: ${jobType} (${jobId})`);
       console.log('🔍 [QUEUE EVENT] Return value type:', typeof returnvalue);
-      console.log('🔍 [QUEUE EVENT] Return value raw:', returnvalue);
-      console.log('🔍 [QUEUE EVENT] Return value JSON:', JSON.stringify(returnvalue, null, 2));
+      if (returnvalue && typeof returnvalue === 'object') {
+        console.log('🔍 [QUEUE EVENT] Return value keys:', Object.keys(returnvalue));
+      } else {
+        console.log('🔍 [QUEUE EVENT] Return value (non-object):', typeof returnvalue === 'string' ? `string(${returnvalue.length} chars)` : typeof returnvalue);
+      }
 
       let outputData: Record<string, unknown>;
       if (typeof returnvalue === 'string') {
@@ -230,11 +231,11 @@ export function setupJobEventListeners() {
         console.log('🔍 [QUEUE] Processed as object, keys:', Object.keys(outputData));
       } else {
         console.log('⚠️  [QUEUE] Warning: returnvalue is null, undefined, or unexpected type');
-        console.log('🔍 [QUEUE] Exact returnvalue:', returnvalue, 'typeof:', typeof returnvalue);
+        console.log('🔍 [QUEUE] Returnvalue type:', typeof returnvalue, 'is null:', returnvalue === null, 'is undefined:', returnvalue === undefined);
         outputData = { raw_return: returnvalue, debug_info: 'returnvalue_was_falsy_or_unexpected' };
       }
 
-      console.log('🔍 [QUEUE EVENT] Final processed output data:', JSON.stringify(outputData, null, 2));
+      console.log('🔍 [QUEUE EVENT] Final processed output data keys:', Object.keys(outputData));
       await updateJobStatus(jobId, 'completed', 100, outputData);
       console.log(`🚨 [QUEUE EVENT] Event handler completed for ${jobType} (${jobId})`);
       console.log(`🚨 [QUEUE EVENT] ========================================`);
@@ -256,19 +257,16 @@ export function setupJobEventListeners() {
 function getJobPriority(jobType: JobType): number {
   const priorities: Record<JobType, number> = {
     'character-generation': 1,
-    'object-generation': 2,
-    'script-generation': 3,
+    'object-analysis': 2,
+    'object-generation': 3,
     'scene-generation': 4,
-    'frame-generation': 5,
-    'image-editing': 6,
-    'video-generation': 7,
-    'video-stitching': 8
+    'frame-analysis': 5,
+    'frame-generation': 6,
+    'image-editing': 7,
+    'video-generation': 8,
+    'video-stitching': 9,
+    'script-generation': 10
   };
 
-  return priorities[jobType] || 5;
-}
-
-function getJobDelay(jobType: JobType): number {
-  if (jobType === 'character-generation') return 0;
-  return 1000;
+  return priorities[jobType];
 }
