@@ -28,6 +28,7 @@ export default function Home() {
   const openPage = useSceneStore((s) => s.openPage);
   const focusModel = useSceneStore((s) => s.focusModel);
   const [panelOpen, setPanelOpen] = useState(false);
+  const glbOverrides = useSceneStore((s) => s.glbOverrides);
   // const resetSelectionAndCamera = useSceneStore((s) => s.resetSelectionAndCamera);
 
   // Update camera target to focused model position (original + focusedOffset) in an effect
@@ -90,7 +91,8 @@ export default function Home() {
               position={instances[currentIndex].position}
               pageId={instances[currentIndex].pageId}
               zoomActive={!!selectedPageId}
-              glbPath={(instances as any)[currentIndex]?.glb_path}
+              glbPath={glbOverrides[currentIndex] ?? (instances as any)[currentIndex]?.glb_path}
+              xRotationLock={(instances as any)[currentIndex]?.xRotationLock}
             />
           ) : (
             // Render only the focused model centered at origin for emphasis
@@ -105,7 +107,8 @@ export default function Home() {
                 })()}
                 pageId={instances[focusedModelIndex]?.pageId}
                 zoomActive={!!selectedPageId}
-                glbPath={(instances as any)[focusedModelIndex]?.glb_path}
+                glbPath={glbOverrides[focusedModelIndex] ?? (instances as any)[focusedModelIndex]?.glb_path}
+                xRotationLock={(instances as any)[focusedModelIndex]?.xRotationLock}
               />
             </group>
           )}

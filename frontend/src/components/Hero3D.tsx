@@ -15,9 +15,10 @@ export type Hero3DProps = {
   pageId?: string;
   zoomActive?: boolean;
   glbPath?: string;
+  xRotationLock?: number;
 };
 
-export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], index = 0, pageId, zoomActive = false, glbPath }: Hero3DProps) {
+export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], index = 0, pageId, zoomActive = false, glbPath, xRotationLock = 0 }: Hero3DProps) {
   const groupRef = useRef<THREE.Group>(null);
   const targetRotation = useRef(new THREE.Euler());
   const targetScale = useRef(0);
@@ -46,9 +47,13 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
 
   useFrame(({ mouse }, delta) => {
     const maxTilt = Math.PI / 6; // 30deg
-    const targetX = -mouse.y * maxTilt;
-    let targetY = mouse.x * maxTilt;
-    targetRotation.current.set( targetX, zoomActive ? targetY + 1.2  : targetY, 0);
+    // Focused: behave as before (full mouse tilt on X/Y, Z locked)
+    // Unfocused: lock X to xRotationLock, Z to 0, allow Y tilt only
+    const baseX = xRotationLock || 0;
+    const targetX = zoomActive ? (-mouse.y * maxTilt) : baseX;
+    const targetY = zoomActive ? (mouse.x * maxTilt + 1.2) : (mouse.x * maxTilt);
+    const targetZ = 0;
+    targetRotation.current.set( targetX, targetY, targetZ);
     const baseScale = zoomActive ? 0.5 : 1.5; // shrink when focused (zoomActive)
     const hoverActive = !zoomActive && hovered;
     targetScale.current = hoverActive ? baseScale * 1.35 : baseScale;
@@ -68,7 +73,7 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
       );
       groupRef.current.rotation.z = THREE.MathUtils.damp(
         groupRef.current.rotation.z,
-        0,
+        targetRotation.current.z,
         5,
         delta
       );

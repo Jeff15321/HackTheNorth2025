@@ -12,7 +12,7 @@ export function getCharacters(spacing: number): CharacterDef[] {
     {
       background_path: "/background/background1.png",
       glb_path: "/glb/character1.glb",
-      xRotationLock: -0.1,
+      xRotationLock: 0.1,
       position: [0, -1, -10],
       label: "character_2",
       pageId: "character_2"
@@ -20,7 +20,7 @@ export function getCharacters(spacing: number): CharacterDef[] {
     {
       background_path: "/background/background1.png",
       glb_path: "/glb/character1.glb", 
-      xRotationLock: -0.1,
+      xRotationLock: 0.1,
       position: [0, 1, -10], 
       label: "character_3", 
       pageId: "character_3"
@@ -28,7 +28,7 @@ export function getCharacters(spacing: number): CharacterDef[] {
     { 
       background_path: "/background/background1.png", 
       glb_path: "/glb/character1.glb", 
-      xRotationLock: -0.1,
+      xRotationLock: 0.1,
       position: [1, 0, -10], 
       label: "character_4", 
       pageId: "character_4" 

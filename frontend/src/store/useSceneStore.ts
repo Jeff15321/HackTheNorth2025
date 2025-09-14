@@ -11,6 +11,7 @@ export type SceneState = {
   selectedPageId: string | null;
   focusedModelIndex: number | null;
   completed: Record<string, boolean>;
+  glbOverrides: Record<number, string>;
   // actions
   select: (index: number, target: THREE.Vector3) => void;
   showSidebar: () => void;
@@ -22,6 +23,8 @@ export type SceneState = {
   clearFocus: () => void;
   setCameraTarget: (target: THREE.Vector3 | null) => void;
   setCompleted: (pageId: string, value: boolean) => void;
+  setGlbForIndex: (index: number, glbPath: string) => void;
+  setGlbForFocused: (glbPath: string) => void;
 };
 
 export const useSceneStore = create<SceneState>((set) => ({
@@ -32,6 +35,7 @@ export const useSceneStore = create<SceneState>((set) => ({
   selectedPageId: null,
   focusedModelIndex: null,
   completed: {},
+  glbOverrides: {},
   select: (index: number, target: THREE.Vector3) =>
     set(() => ({ selectedIndex: index, cameraTarget: target, sidebarVisible: true })),
   showSidebar: () => set(() => ({ sidebarVisible: true })),
@@ -46,6 +50,13 @@ export const useSceneStore = create<SceneState>((set) => ({
   setCameraTarget: (target: THREE.Vector3 | null) => set(() => ({ cameraTarget: target })),
   setCompleted: (pageId: string, value: boolean) =>
     set((state) => ({ completed: { ...state.completed, [pageId]: value } })),
+  setGlbForIndex: (index: number, glbPath: string) =>
+    set((state) => ({ glbOverrides: { ...state.glbOverrides, [index]: glbPath } })),
+  setGlbForFocused: (glbPath: string) =>
+    set((state) => {
+      if (state.focusedModelIndex === null) return {} as Partial<SceneState>;
+      return { glbOverrides: { ...state.glbOverrides, [state.focusedModelIndex]: glbPath } };
+    }),
 }));
 
 
