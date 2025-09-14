@@ -56,7 +56,7 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
     targetRotation.current.set( targetX, targetY, targetZ);
     const baseScale = zoomActive ? 0.5 : 1.5; // shrink when focused (zoomActive)
     const hoverActive = !zoomActive && hovered;
-    targetScale.current = hoverActive ? baseScale * 1.35 : baseScale;
+    targetScale.current = hoverActive ? baseScale * 1.1 : baseScale;
 
     if (groupRef.current) {
       groupRef.current.rotation.x = THREE.MathUtils.damp(
