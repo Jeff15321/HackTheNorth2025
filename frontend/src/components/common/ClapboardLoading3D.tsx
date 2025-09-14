@@ -33,23 +33,23 @@ function JumpingGLB({ path, position = [0, 0, 0], phase = 0, scale = 1, amplitud
   );
 }
 
-export default function ClapboardLoading3D() {
-  // Smaller scale (~5x smaller) and closer spacing
+type LoaderProps = { variant?: "full" | "compact" };
+export default function ClapboardLoading3D({ variant = "compact" }: LoaderProps) {
+  // Smaller scale and centered placement
   const s = 0.18;
   const z = -5.0;
-  const y = -0.3; // sit near the bottom edge of the viewport
-  const dx = 0.4; // closer together
+  const y = 0.0; // center vertically
+  const dx = 0.4;
+  const container = variant === "full"
+    ? "w-full h-screen relative flex items-center justify-center"
+    : "w-full h-full relative flex items-center justify-center";
   return (
-    <div className="w-full h-screen relative bottom-[40vh]">
+    <div className={container}>
       <Scene3D>
-        <JumpingGLB path="/glb/character1.glb" position={[-dx, y, z]} phase={0} scale={s} amplitude={0.4} />
-        <JumpingGLB path="/glb/character2.glb" position={[0, y, z]} phase={0.6} scale={s} amplitude={0.4} />
-        <JumpingGLB path="/glb/character3.glb" position={[dx, y, z]} phase={1.2} scale={s} amplitude={0.4} />
+        <JumpingGLB path="/glb/character1.glb" position={[-dx, y, z]} phase={0} scale={s} amplitude={0.5} />
+        <JumpingGLB path="/glb/character2.glb" position={[0, y, z]} phase={0.6} scale={s} amplitude={0.5} />
+        <JumpingGLB path="/glb/character3.glb" position={[dx, y, z]} phase={1.2} scale={s} amplitude={0.5} />
       </Scene3D>
-
-      <div className="absolute inset-x-0 bottom-3 text-center">
-        <div style={{ fontSize: "30px" }} className="inline-block rounded-xl bg-black/50 px-9 py-2 text-2xl text-white tracking-wide">Loading…</div>
-      </div>
     </div>
   );
 }

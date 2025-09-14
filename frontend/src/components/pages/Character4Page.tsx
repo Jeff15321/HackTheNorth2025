@@ -1,277 +1,126 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { DuoButton, DuoTextArea } from "@/components/duolingo";
 import { useSceneStore } from "@/store/useSceneStore";
-import { themeCharacter1, colors } from "@/styles/colors";
-import { songCategories, addSelectedId, removeSelectedId, isSelectedId, selected_id } from "@/data/songData";
-import { selectSong, removeSong } from "@/lib/songsClient";
+
+type DirectorResult = {
+  response: string;
+  scene_descriptions: string[];
+  characters: string[];
+};
+
+// Dummy API returning structured JSON
+async function dummyDirectorApi(input: string): Promise<DirectorResult> {
+  await new Promise((r) => setTimeout(r, 800));
+  return {
+    response: `Great direction. We'll emphasize stakes and pacing. You said: "${input}"`,
+    scene_descriptions: [
+      "EXT. CITY ROOFTOP - NIGHT: Hero scans the skyline as thunder rolls.",
+      "INT. SUBWAY CAR - NIGHT: A quiet confession between unlikely allies.",
+      "EXT. MARKET ALLEY - DAWN: A chase through weaving crowds and fabric stalls.",
+    ],
+    characters: [
+      "Avery: resilient but secretly doubtful",
+      "Mara: quick-witted fixer with a hidden agenda",
+      "Kellan: idealist whose plans rarely survive reality",
+    ],
+  };
+}
 
 export default function Character4Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
 
-  const textColor = themeCharacter1.text;
-  const borderColor = themeCharacter1.border;
-  const backgroundColor = themeCharacter1.background;
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<DirectorResult | null>({
+    response: "Give the director a note and I’ll break it into scenes and characters.",
+    scene_descriptions: ["No scenes yet."],
+    characters: ["No characters yet."],
+  });
 
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(songCategories[0]?.id || "");
-  const [currentSongId, setCurrentSongId] = useState<string | null>(null);
-  const [selectionVersion, setSelectionVersion] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const listenersBoundRef = useRef(false);
-  const [, setAudioUiVersion] = useState(0); // bump to force rerender on audio events
-
-  const activeCategory = songCategories.find((c) => c.id === activeCategoryId) || songCategories[0];
-
-  useEffect(() => {
-    // Temporary: mark this page as completed on open until API is wired
-    // In the future, move this to run only after a successful API call.
-    useSceneStore.getState().setCompleted("character_4", true);
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    };
-  }, []);
-
-  function bindAudioEventsOnce(audio: HTMLAudioElement) {
-    if (listenersBoundRef.current) return;
-    const bump = () => setAudioUiVersion((v) => v + 1);
-    audio.addEventListener("play", bump);
-    audio.addEventListener("pause", bump);
-    audio.addEventListener("ended", bump);
-    listenersBoundRef.current = true;
+  async function handleSend() {
+    const prompt = input.trim();
+    if (!prompt || sending) return;
+    setInput("");
+    setSending(true);
+    const r = await dummyDirectorApi(prompt);
+    setResult(r);
+    setSending(false);
+    try { useSceneStore.getState().setCompleted("character_4", true); } catch {}
   }
 
-  function togglePlay(songId: string, file: string) {
-    const audio = audioRef.current || new Audio();
-    if (!audioRef.current) {
-      audioRef.current = audio;
-      bindAudioEventsOnce(audio);
-    } else if (!listenersBoundRef.current) {
-      bindAudioEventsOnce(audioRef.current);
-    }
-
-    // If clicking the same song
-    if (currentSongId === songId) {
-      if (!audio.paused) {
-        audio.pause();
-      } else {
-        audio.play();
-      }
-      setAudioUiVersion((v) => v + 1);
-      return;
-    }
-
-    // Switching to another song: pause current, load new, and play
-    audio.pause();
-    audio.src = file;
-    audio.currentTime = 0;
-    audio.play();
-    setCurrentSongId(songId);
-    setAudioUiVersion((v) => v + 1);
-  }
-
-  function isPlaying(songId: string) {
-    const audio = audioRef.current;
-    return !!audio && !audio.paused && currentSongId === songId;
-  }
+  const containerClass = "fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]";
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        height: "100vh",
-        width: "80%",
-        background: backgroundColor,
-        borderLeft: "1px solid rgba(0,0,0,0.08)",
-        boxShadow: `-8px 0 24px ${colors.shadow}`,
-        padding: 16,
-        zIndex: 10,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        color: textColor,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>character_4</h2>
-        <button style={{ border: `1px solid ${colors.borderLight}`, padding: "6px 10px", borderRadius: 6, background: colors.white }} onClick={reset}>
-          Close
-        </button>
-      </div>
-
-      {/* Tabs - horizontal scroll */}
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-        {songCategories.map((cat) => {
-          const selected = cat.id === activeCategoryId;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategoryId(cat.id)}
-              style={{
-                border: `1px solid ${selected ? borderColor : colors.borderLight}`,
-                padding: "6px 10px",
-                borderRadius: 16,
-                background: selected ? colors.white : "transparent",
-                color: selected ? borderColor : textColor,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {cat.name}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Two-column: Left list, Right selected */}
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0 }}>
-        {/* Left: list */}
-        <div style={{
-          flex: 1,
-          border: `1px solid ${colors.borderLight}`,
-          borderRadius: 6,
-          background: colors.white,
-          color: borderColor,
-          overflow: "auto",
-        }}>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {activeCategory?.songs.map((s) => (
-              <li key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderBottom: `1px solid ${colors.cardBorder}` }}>
-                <button
-                  aria-label={isPlaying(s.id) ? "Pause" : "Play"}
-                  onClick={() => togglePlay(s.id, s.file)}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    border: `1px solid ${colors.borderLight}`,
-                    background: isPlaying(s.id) ? themeCharacter1.button : colors.white,
-                    color: isPlaying(s.id) ? colors.white : borderColor,
-                    cursor: "pointer",
-                  }}
-                >
-                  {isPlaying(s.id) ? "❚❚" : "▶"}
-                </button>
-                <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-                  <div style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8 }}>
-                    <span>{s.author}</span>
-                    <span>•</span>
-                    <span>{s.duration}</span>
-                  </div>
-                </div>
-                <SongSelectButton songId={s.id} title={s.title} file={s.file} version={selectionVersion} onChange={() => setSelectionVersion((v) => v + 1)} />
-              </li>
-            ))}
-          </ul>
+    <div className={containerClass}>
+      <div className="flex h-full w-full flex-col gap-6 px-6 py-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-feather text-[24px] text-white/95">Director</h2>
+          </div>
+          <DuoButton variant="secondary" size="md" onClick={reset}>Close</DuoButton>
         </div>
 
-        {/* Right: selected songs */}
-        <div style={{
-          width: "40%",
-          border: `1px solid ${colors.borderLight}`,
-          borderRadius: 6,
-          background: colors.white,
-          color: borderColor,
-          overflow: "auto",
-          padding: 12,
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>Selected Songs</div>
-          {selected_id.length === 0 ? (
-            <div style={{ opacity: 0.7 }}>No songs selected yet.</div>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-              {selected_id.map((entry) => (
-                <li key={String(entry.id)} style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${colors.cardBorder}`, padding: 8, borderRadius: 6 }}>
-                  <button
-                    aria-label={isPlaying(String(entry.id)) ? "Pause" : "Play"}
-                    onClick={() => togglePlay(String(entry.id), String((entry as any).file || ""))}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      border: `1px solid ${colors.borderLight}`,
-                      background: isPlaying(String(entry.id)) ? themeCharacter1.button : colors.white,
-                      color: isPlaying(String(entry.id)) ? colors.white : borderColor,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {isPlaying(String(entry.id)) ? "❚❚" : "▶"}
-                  </button>
-                  <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{String((entry as any).title ?? entry.id)}</div>
-                    {(entry as any).file && <div style={{ fontSize: 12, opacity: 0.8 }}>{String((entry as any).file)}</div>}
-                  </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await removeSong({ songId: String(entry.id) });
-                      } catch {}
-                      removeSelectedId(String(entry.id));
-                      setSelectionVersion((v) => v + 1);
-                    }}
-                    style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: colors.white }}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* Three-column top section */}
+        <div className="flex-[3] min-h-[50vh] overflow-hidden rounded-[28px] border border-white/10 bg-white/5 p-4">
+          <div className="grid h-full grid-cols-12 gap-3">
+            {/* Left: Response (50%) */}
+            <div className="col-span-6 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.03] p-3 text-white/95">
+              <div className="mb-2 text-white/80">Response</div>
+              <div className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap leading-relaxed">
+                {sending ? "Thinking…" : result?.response}
+              </div>
+            </div>
+
+            {/* Middle: Scenes (25%) */}
+            <div className="col-span-3 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.03] p-3 text-white/95">
+              <div className="mb-2 text-white/80">Scenes</div>
+              <ul className="min-h-0 flex-1 overflow-auto space-y-2">
+                {(result?.scene_descriptions || []).map((s, idx) => (
+                  <li key={idx} className="rounded-[12px] border border-white/10 bg-white/5 p-2 text-[14px] leading-relaxed">{s}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Right: Characters (25%) */}
+            <div className="col-span-3 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.03] p-3 text-white/95">
+              <div className="mb-2 text-white/80">Characters</div>
+              <ul className="min-h-0 flex-1 overflow-auto space-y-2">
+                {(result?.characters || []).map((c, idx) => (
+                  <li key={idx} className="rounded-[12px] border border-white/10 bg-white/5 p-2 text-[14px] leading-relaxed">{c}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Composer */}
+        <div className="flex-[1] min-h-[18vh] rounded-[28px] border border-white/10 bg-white/5 p-5">
+          <div className="flex h-full flex-col gap-4 overflow-hidden">
+            <DuoTextArea
+              label="Director note"
+              placeholder="e.g. Increase tension in act two, emphasize rivalry, add a quieter beat…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              containerClassName="flex-1"
+              className="h-full min-h-[120px] resize-none"
+            />
+            <div className="mt-2 flex items-center justify-end">
+              <DuoButton size="md" onClick={handleSend} disabled={!input.trim() || sending}>
+                Generate
+              </DuoButton>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
-type SongSelectButtonProps = { songId: string; title: string; file: string; onChange?: () => void; version?: number };
-function SongSelectButton({ songId, title, file, onChange, version }: SongSelectButtonProps) {
-  const [selected, setSelected] = useState<boolean>(isSelectedId(songId));
-
-  // Sync local selected with global selected_id whenever version changes
-  useEffect(() => {
-    setSelected(isSelectedId(songId));
-  }, [version, songId]);
-
-  async function handleClick() {
-    try {
-      if (!selected) {
-        await selectSong({ songId, title, file });
-        addSelectedId(songId, { title, file });
-        setSelected(true);
-        // Mark this page as completed once any song is selected
-        try { useSceneStore.getState().setCompleted("character_4", true); } catch {}
-        onChange?.();
-      } else {
-        await removeSong({ songId });
-        removeSelectedId(songId);
-        setSelected(false);
-        onChange?.();
-      }
-    } catch (e) {
-      // no-op; backend not implemented
-    }
-  }
-
-  return (
-    <button
-      onClick={handleClick}
-      style={{
-        border: `1px solid ${colors.borderLight}`,
-        padding: "6px 10px",
-        borderRadius: 6,
-        background: selected ? themeCharacter1.button : colors.white,
-        color: selected ? "#fff" : themeCharacter1.border,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {selected ? "Deselect" : "Select"}
-    </button>
-  );
-}
-
-

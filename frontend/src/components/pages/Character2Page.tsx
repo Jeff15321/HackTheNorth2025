@@ -54,13 +54,12 @@ export default function Character2Page() {
   ];
 
   return (
-    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[70%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
+    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
       <div className="flex w-full h-full flex-col gap-6 px-6 py-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-feather text-[24px] text-white/95">Script Generator</h2>
-            <p className="mt-1 text-white/60">Give me a prompt and I’ll craft a screenplay-style script.</p>
           </div>
           <DuoButton variant="secondary" size="md" onClick={reset}>
             Close

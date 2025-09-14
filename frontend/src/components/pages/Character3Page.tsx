@@ -49,21 +49,29 @@ export default function Character3Page() {
   async function handleSubmitCurrent() {
     const prompt = input.trim();
     if (!prompt) return;
-    if (!projectId) {
-      console.error("Project ID is not set. Please create/select a project first.");
-      return;
-    }
     setInput("");
-    const payload = {
-      prompt,
-      imageSrc: current?.image || "",
-      lines: scribblesByIndex[index] || [],
-      projectId,
-    };
     setIsProcessing(true);
     setEntryLoading(activeTab, index, true);
     try {
-      const resp = await sendImageWithScribbles(payload);
+      let resp: { file_path: string; description: string };
+      if (projectId) {
+        const payload = {
+          prompt,
+          imageSrc: current?.image || "",
+          lines: scribblesByIndex[index] || [],
+          projectId,
+        };
+        resp = await sendImageWithScribbles(payload);
+      } else {
+        // Dummy local response for testing without a project
+        await new Promise((r) => setTimeout(r, 600));
+        resp = {
+          file_path: current?.image || "",
+          description:
+            (current?.description ? current.description + "\n\n" : "") +
+            `Applied change: ${prompt}`,
+        };
+      }
       useSceneStore.getState().setCompleted("character_3", true);
       updateCharacterGalleryData(activeTab, index, resp.file_path, resp.description);
       setScribblesByIndex((prev) => ({ ...prev, [index]: [] }));
@@ -88,7 +96,7 @@ export default function Character3Page() {
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[70%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
+    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
       <div className="flex h-full w-full flex-col gap-4 px-6 py-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -121,13 +129,9 @@ export default function Character3Page() {
 
         {/* Content: two columns */}
         <div className="flex min-h-0 flex-1 gap-4">
-          {/* Left column: canvas & navigation */}
+          {/* Left column: canvas with in-frame nav arrows */}
           <div className="flex flex-1 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-white/5">
-            <div className="flex items-center justify-between border-b border-white/10 p-2">
-              <button onClick={goPrev} aria-label="Previous" className="rounded-[10px] border border-white/12 bg-white/5 px-3 py-1 text-white/80 hover:border-white/22">▲</button>
-              <button onClick={goNext} aria-label="Next" className="rounded-[10px] border border-white/12 bg-white/5 px-3 py-1 text-white/80 hover:border-white/22">▼</button>
-            </div>
-            <div className="flex flex-1 items-center justify-center p-3">
+            <div className="relative flex flex-1 items-center justify-center p-3">
               {!hasEntries ? (
                 <div className="text-white/60">No images available.</div>
               ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
@@ -135,13 +139,31 @@ export default function Character3Page() {
               ) : (
                 <ScribbleEditor
                   src={current!.image}
-                  width={420}
                   lines={scribblesByIndex[index]}
                   onChangeLines={(l) => {
                     setScribblesByIndex((prev) => ({ ...prev, [index]: l }));
                     if (current?.image) setScribblesForImage(current.image, l);
                   }}
                 />
+              )}
+              {/* Overlay arrows */}
+              {hasEntries && (
+                <>
+                  <button
+                    onClick={goPrev}
+                    aria-label="Previous"
+                    className="absolute left-6 top-1/2 -translate-y-1/2 rounded-[12px] border border-white/20 bg-white/50 px-3 py-2 text-[#0e1b1d] backdrop-blur-sm"
+                  >
+                    ←
+                  </button>
+                  <button
+                    onClick={goNext}
+                    aria-label="Next"
+                    className="absolute right-6 top-1/2 -translate-y-1/2 rounded-[12px] border border-white/20 bg-white/50 px-3 py-2 text-[#0e1b1d] backdrop-blur-sm"
+                  >
+                    →
+                  </button>
+                </>
               )}
             </div>
           </div>

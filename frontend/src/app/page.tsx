@@ -114,34 +114,30 @@ export default function Home() {
           )}
         </Scene3D>
 
-        {/* Top-left progress bar and navigation */}
-        <div style={{ position: "fixed", top: 12, left: 12, zIndex: 50, display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 200, height: 10, background: "rgba(255,255,255,0.6)", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <div style={{ width: `${pct}%`, height: "100%", background: "#10B981" }} />
-          </div>
-          <span style={{ color: "#111", fontSize: 12 }}>{done}/{total}</span>
-          <button onClick={goPrev} className="px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white">Prev</button>
-          <button onClick={goNext} className={`px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white ${nextIsComplete ? "animate-pulse" : ""}`}>Next</button>
-        </div>
 
-        {/* Toggle Button - fixed bottom-left */}
+        {/* Map toggle button - fixed bottom-left */}
         <button
           onClick={() => setPanelOpen((v) => !v)}
-          className="fixed left-4 bottom-4 z-50 px-4 py-2 rounded-lg bg-white/90 text-gray-900 shadow hover:bg-white"
+          className="fixed left-4 top-4 z-50 w-20 h-20 flex items-center justify-center rounded-xl bg-white/90 text-gray-900 shadow hover:bg-white"
+          aria-label={panelOpen ? "Close map" : "Open map"}
         >
-          {panelOpen ? "Close Panel" : "Open Panel"}
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7" />
+            <path d="M9 4v13" />
+            <path d="M15 7v13" />
+          </svg>
         </button>
 
         <ModelSwitcherPanel
           isOpen={panelOpen}
           onClose={() => setPanelOpen(false)}
           onSelectIndex={(idx) => { closePage(); clearFocus(); setCurrentIndex(idx); }}
-          buttonLabels={instances.map((_, idx) => `Show Character ${idx + 1}`)}
+          buttonLabels={instances.map((_, idx) => `${idx + 1}`)}
           pinPositions={
             [
             { top: 0.6, left: 0.30, label: "Script Writer" },
             { top: 0.35, left: 0.50, label: "Character Creator" },
-            { top: 0.60, left: 0.68,label: "Music Composer" },
+            { top: 0.60, left: 0.68,label: "Director" },
           ]}
           pinColors={["#499163FF", "#CD903BFF", "#A78BFA"]}        />
 

@@ -47,7 +47,7 @@ export default function ModelSwitcherPanel({ isOpen, onClose, onSelectIndex, but
                 className="flex flex-col items-center gap-1"
               >
                 <MapPinButton
-                  value={idx + 1}
+                  value={( idx + 2) % buttonLabels.length == 0 ? buttonLabels.length : ( idx + 2) % buttonLabels.length}
                   size={76}
                   color={pinColors?.[idx] ?? "#000000"}
                   onClick={() => {

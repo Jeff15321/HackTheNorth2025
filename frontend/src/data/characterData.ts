@@ -26,9 +26,43 @@ export function setCurrentCharacterGallaryIndex(index: number): void {
 export type GalleryCategory = "characters" | "objects" | "scenes";
 
 export let characterGallaryData: Record<GalleryCategory, characterGallaryDataEntry[]> = {
-  characters: [],
-  objects: [],
-  scenes: [],
+  // Use assets under /public. Paths are absolute from the web root
+  characters: [
+    {
+      image: "/images/cat1.jpg",
+      description: "A mischievous alley cat with bright eyes and plenty of attitude.",
+      loading: false,
+    },
+    {
+      image: "/images/images.jpg",
+      description: "Portrait of a curious character, ready for a new adventure.",
+      loading: false,
+    },
+  ],
+  objects: [
+    {
+      image: "/background/background1.png",
+      description: "A cozy table setup with props for sketching and storyboarding.",
+      loading: false,
+    },
+    {
+      image: "/background/background2.png",
+      description: "Film set props with soft lighting and gentle shadows.",
+      loading: false,
+    },
+  ],
+  scenes: [
+    {
+      image: "/background/background3.png",
+      description: "A rehearsal room with acoustic foam panels and studio vibes.",
+      loading: false,
+    },
+    {
+      image: "/background/map.png",
+      description: "Map board for planning chase sequences across the city.",
+      loading: false,
+    },
+  ],
 };
 
 
