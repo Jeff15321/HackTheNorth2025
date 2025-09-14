@@ -109,7 +109,7 @@ export default function Character3Page() {
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-2">
-          {(["characters", "objects", "scenes"] as GalleryCategory[]).map((tab) => {
+          {(["characters", "scenes"] as GalleryCategory[]).map((tab) => {
             const selected = activeTab === tab;
             return (
               <button

@@ -39,18 +39,7 @@ export let characterGallaryData: Record<GalleryCategory, characterGallaryDataEnt
       loading: false,
     },
   ],
-  objects: [
-    {
-      image: "/background/background1.png",
-      description: "A cozy table setup with props for sketching and storyboarding.",
-      loading: false,
-    },
-    {
-      image: "/background/background2.png",
-      description: "Film set props with soft lighting and gentle shadows.",
-      loading: false,
-    },
-  ],
+  
   scenes: [
     {
       image: "/background/background3.png",
