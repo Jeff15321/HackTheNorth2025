@@ -11,7 +11,12 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-aspect-ratio": "^1.1.7",
+    "@radix-ui/react-progress": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "@react-three/drei": "^10.7.5",
     "@react-three/fiber": "^9.3.0",
     "@tanstack/react-query": "^5.87.4",
@@ -32,6 +37,7 @@
     "react-konva": "^19.0.10",
     "react-rnd": "^10.5.2",
     "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7",
     "three": "^0.180.0",
     "vitest": "^3.2.4",
     "zod": "^4.1.8",
