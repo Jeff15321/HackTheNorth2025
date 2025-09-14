@@ -28,7 +28,7 @@ export async function uploadFile(
     .from(config.bucket)
     .upload(path, buffer, {
       contentType: mimeType,
-      upsert: false
+      upsert: true
     });
 
   if (error) {

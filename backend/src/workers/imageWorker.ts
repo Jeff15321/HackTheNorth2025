@@ -235,6 +235,17 @@ async function processImageEditing(job: Job) {
     console.log(`✏️  [IMAGE EDITING] Editing image: ${edit_prompt.substring(0, 50)}...`);
 
     let sourceBuffer: Buffer;
+    let existingPath: string | null = null;
+
+    // Check if source_url is a Supabase URL
+    const supabaseUrlPattern = /https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/(.+)/;
+    const match = source_url.match(supabaseUrlPattern);
+
+    if (match) {
+      // Extract the path after 'public/' (e.g., 'htn2025/characters/char_123.png')
+      existingPath = match[1];
+      console.log(`📦 [IMAGE EDITING] Detected Supabase URL, will replace file at: ${existingPath}`);
+    }
 
     if (source_url.startsWith('data:image/')) {
       const base64Data = source_url.split(',')[1];
@@ -256,8 +267,35 @@ async function processImageEditing(job: Job) {
     // Upload edited image to Supabase storage
     const base64Image = editedBuffer.toString('base64');
     const dataUrl = `data:image/png;base64,${base64Image}`;
-    const fileName = generateFileName('edited.png', `edit_${Date.now()}`);
-    const uploadResult = await uploadBase64Image(dataUrl, fileName, StorageConfigs.object); // Use object config for edited images
+
+    let uploadResult;
+
+    if (existingPath) {
+      // Replace the existing file in Supabase
+      const pathParts = existingPath.split('/');
+      const fileName = pathParts.pop()!; // Get the filename
+      const folder = pathParts.join('/'); // Get the folder path
+
+      // Determine the storage config based on the path
+      let storageConfig: typeof StorageConfigs[keyof typeof StorageConfigs];
+      if (folder.includes('characters')) {
+        storageConfig = StorageConfigs.character;
+      } else if (folder.includes('objects')) {
+        storageConfig = StorageConfigs.object;
+      } else if (folder.includes('scenes') || folder.includes('frames')) {
+        storageConfig = StorageConfigs.frame;
+      } else {
+        storageConfig = StorageConfigs.object; // Default
+      }
+
+      // Upload with the same filename to replace it
+      uploadResult = await uploadBase64Image(dataUrl, fileName, storageConfig);
+      console.log(`✏️  [IMAGE EDITING] Replaced existing file: ${fileName}`);
+    } else {
+      // Generate new filename for non-Supabase URLs
+      const fileName = generateFileName('edited.png', `edit_${Date.now()}`);
+      uploadResult = await uploadBase64Image(dataUrl, fileName, StorageConfigs.object);
+    }
 
     await updateJobStatus(job.id!, 'processing', 90);
 

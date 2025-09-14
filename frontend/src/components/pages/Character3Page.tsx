@@ -1,50 +1,160 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
 import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
 import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData, setEntryLoading, initializeAllLoadingFalse, GalleryCategory } from "@/data/characterData";
-import { sendImageWithScribbles } from "@/lib/imageAgent";
 import LoadingClapBoard from "../common/ClapboardLoading3D";
 import { useBackendStore } from "@/store/backendStore";
 import { DuoButton, DuoTextArea } from "@/components/duolingo";
+import { useProject, useProjectData, useImageEditing } from "@/hooks/useBackendIntegration";
+import type { BackendCharacter, BackendScene } from "@/data/characterData";
 
 export default function Character3Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
+  const project = useProject();
+  const projectData = useProjectData();
+  const imageEditing = useImageEditing();
 
   const [activeTab, setActiveTab] = useState<GalleryCategory>("characters");
-  const entries = characterGallaryData[activeTab];
+  const [backendCharacters, setBackendCharacters] = useState<BackendCharacter[]>([]);
+  const [backendScenes, setBackendScenes] = useState<BackendScene[]>([]);
+  const [isGeneratingScenes, setIsGeneratingScenes] = useState(false);
+  const [imagesLoadingStatus, setImagesLoadingStatus] = useState<Record<string, boolean>>({});
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastDataRef = useRef({ characters: 0, scenes: 0 });
+  const lastFetchTime = useRef(0);
+
+  // Use backend data when available, fallback to local data
+  const hasBackendData = project?.currentProject && (backendCharacters.length > 0 || backendScenes.length > 0);
+  const entries = hasBackendData ?
+    (activeTab === "characters" ?
+      backendCharacters.map(char => ({
+        image: char.media_url || "/images/placeholder.jpg",
+        description: `${char.metadata?.name || 'Unnamed'}\nRole: ${char.metadata?.role || 'Unknown'}\nAge: ${char.metadata?.age || 'Unknown'}\nDescription: ${char.metadata?.description || 'No description'}\nPersonality: ${char.metadata?.personality || 'No personality info'}\nBackstory: ${char.metadata?.backstory || 'No backstory'}`,
+        loading: imagesLoadingStatus[char.media_url || ''] ?? true,
+        id: char.id
+      })) :
+      backendScenes.map(scene => ({
+        image: scene.media_url || "/images/placeholder.jpg",
+        description: `Scene ${scene.metadata?.scene_order || 'Unknown'}\nConcise Plot: ${scene.metadata?.concise_plot || 'No plot'}\nDetailed Plot: ${scene.metadata?.detailed_plot || 'No detailed plot'}\nDialogue: ${scene.metadata?.dialogue || 'No dialogue'}`,
+        loading: imagesLoadingStatus[scene.media_url || ''] ?? true,
+        id: scene.id
+      }))
+    ) : characterGallaryData[activeTab];
   const hasEntries = entries && entries.length > 0;
 
   const [index, setIndex] = useState(getCurrentCharacterGallaryIndex());
   const [scribblesByIndex, setScribblesByIndex] = useState<Record<number, ScribbleLine[]>>({});
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [version, setVersion] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   const current = hasEntries ? (entries[index] ?? entries[0]) : undefined;
   const projectId = useBackendStore((s) => s.projectId);
+
+  const handleRefreshImage = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  // Get image URL with cache-busting parameter
+  const getImageUrl = useCallback((url: string) => {
+    if (!url || url === '/images/placeholder.jpg') return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${refreshKey}`;
+  }, [refreshKey]);
 
   useEffect(() => {
     initializeAllLoadingFalse();
   }, []);
 
-  function goPrev() {
-    if (!hasEntries) return;
+  // Polling function with data comparison and throttling
+  const pollData = useCallback(async () => {
+    if (!project?.currentProject) return;
+
+    // Throttle API calls to prevent excessive requests
+    const now = Date.now();
+    if (now - lastFetchTime.current < 5000) {
+      return; // Skip if less than 5 seconds since last fetch
+    }
+    lastFetchTime.current = now;
+
+    try {
+      const [characters, scenes] = await Promise.all([
+        projectData.refreshCharacters(),
+        projectData.refreshScenes()
+      ]);
+
+      // Only update state if data has actually changed
+      const currentCount = { characters: characters.length, scenes: scenes.length };
+      const lastCount = lastDataRef.current;
+
+      if (currentCount.characters !== lastCount.characters || currentCount.scenes !== lastCount.scenes) {
+        console.log('Data updated:', currentCount);
+        setBackendCharacters(characters);
+        setBackendScenes(scenes);
+        lastDataRef.current = currentCount;
+      }
+
+    } catch (error) {
+      console.error('Error polling data:', error);
+    }
+  }, [project?.currentProject, projectData]);
+
+  // Set up polling every 10 seconds (reduced frequency)
+  useEffect(() => {
+    if (!project?.currentProject) {
+      // Clear data and interval when no project
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setBackendCharacters([]);
+      setBackendScenes([]);
+      lastDataRef.current = { characters: 0, scenes: 0 };
+      lastFetchTime.current = 0;
+      return;
+    }
+
+    // Initial load
+    pollData();
+
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    // Start polling every 10 seconds (reduced from 5 seconds)
+    intervalRef.current = setInterval(pollData, 10000);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [project?.currentProject?.id]); // Remove pollData from dependency array to prevent recreating interval
+
+  const goPrev = useCallback(() => {
+    if (!hasEntries || !entries) return;
     setIndex((i) => {
       const next = (i - 1 + entries.length) % entries.length;
-      setCurrentCharacterGallaryIndex(next);
+      if (!hasBackendData) {
+        setCurrentCharacterGallaryIndex(next);
+      }
       return next;
     });
-  }
+  }, [hasEntries, entries, hasBackendData]);
 
-  function goNext() {
-    if (!hasEntries) return;
+  const goNext = useCallback(() => {
+    if (!hasEntries || !entries) return;
     setIndex((i) => {
       const next = (i + 1) % entries.length;
-      setCurrentCharacterGallaryIndex(next);
+      if (!hasBackendData) {
+        setCurrentCharacterGallaryIndex(next);
+      }
       return next;
     });
-  }
+  }, [hasEntries, entries, hasBackendData]);
 
   async function handleSubmitCurrent() {
     const prompt = input.trim();
@@ -54,7 +164,28 @@ export default function Character3Page() {
     setEntryLoading(activeTab, index, true);
     try {
       let resp: { file_path: string; description: string };
-      if (projectId) {
+
+      // Use backend image editing if we have a project and current image
+      if (project?.currentProject && current?.image && hasBackendData) {
+        const jobId = await imageEditing.editImage({
+          projectId: project.currentProject.id,
+          sourceUrl: current.image,
+          editPrompt: prompt,
+          metadata: {
+            source: 'character_gallery',
+            tab: activeTab,
+            index: index
+          }
+        });
+
+        console.log('Image editing job started:', jobId);
+        resp = {
+          file_path: current.image,
+          description: current.description + "\n\nEditing in progress..."
+        };
+      } else if (projectId) {
+        // Fallback to old system
+        const { sendImageWithScribbles } = await import("@/lib/imageAgent");
         const payload = {
           prompt,
           imageSrc: current?.image || "",
@@ -72,28 +203,108 @@ export default function Character3Page() {
             `Applied change: ${prompt}`,
         };
       }
+
       useSceneStore.getState().setCompleted("character_3", true);
-      updateCharacterGalleryData(activeTab, index, resp.file_path, resp.description);
+
+      // Only update local gallery data if not using backend data
+      if (!hasBackendData) {
+        updateCharacterGalleryData(activeTab, index, resp.file_path, resp.description);
+      }
+
       setScribblesByIndex((prev) => ({ ...prev, [index]: [] }));
       setScribblesForImage(resp.file_path, []);
-      setVersion((v) => v + 1);
     } finally {
       setIsProcessing(false);
       setEntryLoading(activeTab, index, false);
     }
   }
 
-  // Load persisted scribbles for the current image when index changes
-  const imageForIndex = (i: number) => entries[i]?.image;
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const imgSrc = imageForIndex(index);
-  if (imgSrc && loadedKey !== imgSrc) {
-    const persisted = getScribblesForImage(imgSrc);
-    if (persisted) {
-      setScribblesByIndex((prev) => ({ ...prev, [index]: persisted }));
+  const handleGenerateScenes = async () => {
+    if (!project?.currentProject || isGeneratingScenes) return;
+
+    try {
+      setIsGeneratingScenes(true);
+
+      // Check if script has been enhanced
+      if (!project.currentProject.plot || project.currentProject.plot.trim() === '') {
+        alert('Please enhance the script first to generate scenes. Go to the Script Enhancement tab.');
+        return;
+      }
+
+      const result = await projectData.generateScenes();
+
+      if (result.success) {
+        console.log('Scene generation started:', result.jobIds);
+        // Switch to scenes tab to show progress
+        setActiveTab("scenes");
+      } else {
+        alert('Error generating scenes: ' + result.message);
+      }
+
+    } catch (error) {
+      console.error('Error generating scenes:', error);
+      alert('Error generating scenes: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsGeneratingScenes(false);
     }
-    setLoadedKey(imgSrc);
   }
+
+  // Load persisted scribbles for the current image when index changes
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (entries && entries.length > 0 && entries[index]) {
+      const imgSrc = entries[index].image;
+      if (imgSrc && loadedKey !== imgSrc && !hasBackendData) {
+        const persisted = getScribblesForImage(imgSrc);
+        if (persisted && persisted.length > 0) {
+          setScribblesByIndex((prev) => ({ ...prev, [index]: persisted }));
+        }
+        setLoadedKey(imgSrc);
+      }
+    }
+  }, [entries, index, loadedKey, hasBackendData]);
+
+  // Reset index when switching tabs
+  useEffect(() => {
+    setIndex(0);
+    // Clear loading status when switching tabs
+    setImagesLoadingStatus({});
+  }, [activeTab]);
+
+  // Preload images when entries change
+  useEffect(() => {
+    if (entries && entries.length > 0) {
+      entries.forEach((entry: any) => {
+        if (entry.image && entry.image !== '/images/placeholder.jpg') {
+          // Initialize loading status
+          if (!(entry.image in imagesLoadingStatus)) {
+            setImagesLoadingStatus(prev => ({ ...prev, [entry.image]: true }));
+
+            // Create a hidden image to preload
+            const img = new Image();
+            img.onload = () => {
+              setImagesLoadingStatus(prev => ({ ...prev, [entry.image]: false }));
+            };
+            img.onerror = () => {
+              setImagesLoadingStatus(prev => ({ ...prev, [entry.image]: false }));
+            };
+            img.src = entry.image;
+          }
+        }
+      });
+    }
+  }, [entries, imagesLoadingStatus]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
@@ -134,17 +345,40 @@ export default function Character3Page() {
             <div className="relative flex flex-1 items-center justify-center p-3">
               {!hasEntries ? (
                 <div className="text-white/60">No images available.</div>
-              ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+              ) : isProcessing || current?.loading ? (
                 <LoadingClapBoard />
               ) : (
-                <ScribbleEditor
-                  src={current!.image}
-                  lines={scribblesByIndex[index]}
-                  onChangeLines={(l) => {
-                    setScribblesByIndex((prev) => ({ ...prev, [index]: l }));
-                    if (current?.image) setScribblesForImage(current.image, l);
-                  }}
-                />
+                <>
+                  <ScribbleEditor
+                    src={getImageUrl(current?.image || '')}
+                    lines={scribblesByIndex[index] || []}
+                    onChangeLines={(l) => {
+                      setScribblesByIndex((prev) => ({ ...prev, [index]: l }));
+                      if (current?.image) setScribblesForImage(current.image, l);
+                    }}
+                  />
+                  {/* Refresh button */}
+                  <button
+                    onClick={handleRefreshImage}
+                    className="absolute top-6 right-6 rounded-[12px] border border-white/20 bg-white/10 px-3 py-2 text-white/80 hover:bg-white/20 hover:text-white backdrop-blur-sm transition-colors"
+                    title="Refresh image (bypass cache)"
+                  >
+                    🔄
+                  </button>
+                  {/* Hidden image to preload and track loading status */}
+                  {current?.image && (
+                    <img
+                      src={getImageUrl(current.image)}
+                      style={{ display: 'none' }}
+                      onLoad={() => {
+                        setImagesLoadingStatus(prev => ({ ...prev, [current.image]: false }));
+                      }}
+                      onError={() => {
+                        setImagesLoadingStatus(prev => ({ ...prev, [current.image]: false }));
+                      }}
+                    />
+                  )}
+                </>
               )}
               {/* Overlay arrows */}
               {hasEntries && (
@@ -174,10 +408,10 @@ export default function Character3Page() {
             <div className="flex-1 overflow-auto rounded-[12px] border border-white/8 bg-white/[0.03] p-3">
               {!hasEntries ? (
                 <div className="text-white/60">No description available.</div>
-              ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+              ) : isProcessing || current?.loading ? (
                 <LoadingClapBoard />
               ) : (
-                <p className="whitespace-pre-wrap leading-relaxed">{current!.description}</p>
+                <p className="whitespace-pre-wrap leading-relaxed">{current?.description || 'No description available.'}</p>
               )}
             </div>
 
@@ -199,9 +433,9 @@ export default function Character3Page() {
                 <DuoButton
                   size="md"
                   className="bg-[#8b5cf6] text-white shadow-[0_6px_0_#6e46d9] hover:brightness-105"
-                  onClick={() => window.location.href = '/timeline'}
+                  onClick={handleGenerateScenes}
                 >
-                  Generate Video
+                  {isGeneratingScenes ? 'Generating...' : 'Generate Scenes'}
                 </DuoButton>
                 <DuoButton size="md" onClick={handleSubmitCurrent} disabled={isProcessing || !input.trim()}>
                   Apply changes

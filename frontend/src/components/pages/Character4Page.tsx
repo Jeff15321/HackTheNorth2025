@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DuoButton, DuoTextArea } from "@/components/duolingo";
 import { useSceneStore } from "@/store/useSceneStore";
+import { useDirector, useProject } from "@/hooks/useBackendIntegration";
+import { getCurrentProject } from "@/data/projectData";
 
 type DirectorResult = {
   response: string;
@@ -10,44 +12,98 @@ type DirectorResult = {
   characters: string[];
 };
 
-// Dummy API returning structured JSON
-async function dummyDirectorApi(input: string): Promise<DirectorResult> {
-  await new Promise((r) => setTimeout(r, 800));
-  return {
-    response: `Great direction. We'll emphasize stakes and pacing. You said: "${input}"`,
-    scene_descriptions: [
-      "EXT. CITY ROOFTOP - NIGHT: Hero scans the skyline as thunder rolls.",
-      "INT. SUBWAY CAR - NIGHT: A quiet confession between unlikely allies.",
-      "EXT. MARKET ALLEY - DAWN: A chase through weaving crowds and fabric stalls.",
-    ],
-    characters: [
-      "Avery: resilient but secretly doubtful",
-      "Mara: quick-witted fixer with a hidden agenda",
-      "Kellan: idealist whose plans rarely survive reality",
-    ],
-  };
-}
-
 export default function Character4Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
+  const project = useProject();
+  const director = useDirector();
 
   const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
   const [result, setResult] = useState<DirectorResult | null>({
-    response: "Give the director a note and I’ll break it into scenes and characters.",
-    scene_descriptions: ["No scenes yet."],
-    characters: ["No characters yet."],
+    response: "Welcome! I'm your AI director. Let's create something amazing together. Tell me about your film idea and I'll help develop the story, characters, and scenes.",
+    scene_descriptions: ["Start a conversation to develop scenes..."],
+    characters: ["Characters will appear as we develop the story..."],
   });
+
+  // Initialize project if needed
+  useEffect(() => {
+    const initializeProject = async () => {
+      const currentProject = getCurrentProject();
+      if (!currentProject) {
+        try {
+          await project.createProject();
+        } catch (error) {
+          console.error('Failed to create project:', error);
+        }
+      }
+    };
+
+    initializeProject();
+  }, [project.createProject]);
+
+  // Update result when director conversation changes
+  useEffect(() => {
+    if (director.messages.length > 0) {
+      const lastMessage = director.messages[director.messages.length - 1];
+      if (lastMessage.type === 'director') {
+        const plotPoints = director.status.plot.length > 0
+          ? director.status.plot.map((plot, idx) => `Scene ${idx + 1}: ${plot}`)
+          : ["Scenes will appear as we develop the story..."];
+
+        const characterList = director.status.characters.length > 0
+          ? director.status.characters.map(char => `${char.name}: ${char.description}`)
+          : ["Characters will appear as we develop the story..."];
+
+        setResult({
+          response: lastMessage.content,
+          scene_descriptions: plotPoints,
+          characters: characterList
+        });
+      }
+    }
+  }, [director.messages, director.status]);
 
   async function handleSend() {
     const prompt = input.trim();
-    if (!prompt || sending) return;
+    if (!prompt || director.isLoading) return;
+
     setInput("");
-    setSending(true);
-    const r = await dummyDirectorApi(prompt);
-    setResult(r);
-    setSending(false);
-    try { useSceneStore.getState().setCompleted("character_4", true); } catch {}
+
+    try {
+      const response = await director.sendMessage(prompt);
+
+      // Transform the response to match our UI format
+      const plotPoints = response.plot_points.length > 0
+        ? response.plot_points.map((plot, idx) => `Scene ${idx + 1}: ${plot}`)
+        : ["Scenes will appear as we develop the story..."];
+
+      const characterList = response.characters.length > 0
+        ? response.characters.map(char => `${char.name}: ${char.description}`)
+        : ["Characters will appear as we develop the story..."];
+
+      setResult({
+        response: response.response,
+        scene_descriptions: plotPoints,
+        characters: characterList
+      });
+
+      // Mark as completed if the conversation is complete
+      if (response.is_complete) {
+        try {
+          useSceneStore.getState().setCompleted("character_4", true);
+          // Auto-generate characters when conversation is complete
+          await director.generateCharacters();
+        } catch (error) {
+          console.error('Failed to complete workflow:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send message to director:', error);
+      setResult({
+        response: "Sorry, I'm having trouble connecting right now. Please try again.",
+        scene_descriptions: ["Connection error - please retry"],
+        characters: ["Connection error - please retry"]
+      });
+    }
   }
 
   const containerClass = "fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]";
@@ -59,6 +115,11 @@ export default function Character4Page() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-feather text-[24px] text-white/95">Director</h2>
+            {project?.currentProject && (
+              <div className="text-sm text-white/60 mt-1">
+                Project: {project.currentProject.id.substring(0, 8)}...
+              </div>
+            )}
           </div>
           <DuoButton variant="secondary" size="md" onClick={reset}>Close</DuoButton>
         </div>
@@ -70,7 +131,7 @@ export default function Character4Page() {
             <div className="col-span-6 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.03] p-3 text-white/95">
               <div className="mb-2 text-white/80">Response</div>
               <div className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap leading-relaxed">
-                {sending ? "Thinking…" : result?.response}
+                {director.isLoading ? "Thinking…" : result?.response}
               </div>
             </div>
 
@@ -102,7 +163,7 @@ export default function Character4Page() {
             <div className="flex items-end gap-3">
               <DuoTextArea
                 label="Director note"
-                placeholder="e.g. Increase tension in act two, emphasize rivalry, add a quieter beat…"
+                placeholder="e.g. I want to create a sci-fi thriller about space exploration, or tell me about your characters and plot ideas..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -115,12 +176,19 @@ export default function Character4Page() {
                 containerClassName="flex-1"
                 className="h-[72px] min-h-[72px] max-h-[72px] resize-none overflow-auto"
               />
-              <DuoButton size="md" onClick={handleSend} disabled={!input.trim() || sending}>
-                Submit
+              <DuoButton size="md" onClick={handleSend} disabled={!input.trim() || director.isLoading}>
+                {director.isLoading ? 'Sending...' : 'Submit'}
               </DuoButton>
             </div>
           </div>
         </div>
+
+        {/* Status indicator */}
+        {director.status.isComplete && (
+          <div className="bg-green-900/20 border border-green-500/20 rounded-lg p-3 text-green-400 text-sm">
+            ✓ Conversation complete! Characters are being generated automatically.
+          </div>
+        )}
       </div>
     </div>
   );

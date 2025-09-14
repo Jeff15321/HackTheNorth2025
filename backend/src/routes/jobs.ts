@@ -712,8 +712,18 @@ Return a JSON object with:
   fastify.post('/api/jobs/image-editing', {
     schema: {
       ...jobsSchema,
-      summary: 'Create image editing job with form upload',
-      consumes: ['multipart/form-data'],
+      summary: 'Create image editing job with JSON payload',
+      consumes: ['application/json'],
+      body: {
+        type: 'object',
+        required: ['project_id', 'source_url', 'edit_prompt'],
+        properties: {
+          project_id: { type: 'string' },
+          source_url: { type: 'string', description: 'URL or base64 data URL of the source image' },
+          edit_prompt: { type: 'string' },
+          metadata: { type: 'object', additionalProperties: true }
+        }
+      },
       response: {
         201: { type: 'object', properties: { job_id: { type: 'string' } } },
         400: { type: 'object', properties: { error: { type: 'string' } } },
@@ -722,35 +732,26 @@ Return a JSON object with:
     }
   }, async (request, reply) => {
     try {
-      const data = await request.file();
+      const { project_id, source_url, edit_prompt, metadata = {} } = request.body as {
+        project_id: string;
+        source_url: string;
+        edit_prompt: string;
+        metadata?: any;
+      };
 
-      if (!data) {
-        return reply.status(400).send({ error: 'No file uploaded' });
+      if (!project_id || !source_url || !edit_prompt) {
+        return reply.status(400).send({ error: 'project_id, source_url, and edit_prompt are required' });
       }
-
-      const fields = data.fields;
-      const projectId = (fields.project_id as any)?.value;
-      const editPrompt = (fields.edit_prompt as any)?.value;
-      const metadata = fields.metadata ? JSON.parse((fields.metadata as any).value) : {};
-
-      if (!projectId || !editPrompt) {
-        return reply.status(400).send({ error: 'project_id and edit_prompt are required' });
-      }
-
-      const imageBuffer = await data.toBuffer();
-
-      const base64Image = imageBuffer.toString('base64');
-      const sourceUrl = `data:image/png;base64,${base64Image}`;
 
       const jobData = {
         id: crypto.randomUUID(),
-        project_id: projectId,
+        project_id,
         type: 'image-editing' as const,
         status: 'pending' as const,
         progress: 0,
         input_data: {
-          source_url: sourceUrl,
-          edit_prompt: editPrompt,
+          source_url,
+          edit_prompt,
           type: 'edited_images',
           metadata
         },
