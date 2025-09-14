@@ -1,12 +1,14 @@
+@import url(https://db.onlinewebfonts.com/c/14936bb7a4b6575fd2eee80a3ab52cc2?family=Feather+Bold);
 @import "tailwindcss";
 /*---break---
  */
 @plugin "tailwindcss-animate";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --feather-font: "Feather Bold", system-ui, -apple-system, Segoe UI, Roboto, Arial,
+    sans-serif;
   --font-size: 16px;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -132,6 +134,15 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Duolingo-style font utility */
+@layer utilities {
+  .font-feather {
+    font-family: var(--feather-font);
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
 }
 

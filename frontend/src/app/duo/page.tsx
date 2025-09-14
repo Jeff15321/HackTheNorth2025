@@ -14,7 +14,7 @@ type SceneCard = {
   frames: { title: string; description: string }[];
 };
 
-export default function TimelinePage() {
+export default function DuoScenesPage() {
   const scenes: SceneCard[] = useMemo(
     () => [
       {
@@ -33,7 +33,7 @@ export default function TimelinePage() {
         id: "s2",
         title: "Scene 2",
         date: "2025-09-14",
-        image: "/background/background1.png",
+        image: "/public/background/background1.png",
         durationSec: 10,
         frames: [
           { title: "Frame A", description: "Close-up reaction." },
@@ -44,7 +44,7 @@ export default function TimelinePage() {
         id: "s3",
         title: "Scene 3",
         date: "2025-09-14",
-        image: "/background/background2.png",
+        image: "/public/background/background2.png",
         durationSec: 12,
         frames: [
           { title: "Frame A", description: "Cutaway details." },
@@ -63,13 +63,10 @@ export default function TimelinePage() {
 
   return (
     <div className="min-h-screen bg-[#0f1b20] text-white">
-      {/* Top bar with centered movie title */}
-      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#0f1b20]/80 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-6 py-4 relative flex items-center justify-between">
-          <div className="text-white/70 font-feather">Script › Characters › <span className="text-white">Scenes</span></div>
-          <div className="absolute left-1/2 -translate-x-1/2 font-feather text-[22px]">movie title</div>
-          <div className="opacity-0">placeholder</div>
-        </div>
+      {/* Breadcrumb + Title */}
+      <div className="mx-auto max-w-6xl px-6 pt-6">
+        <div className="mb-4 text-white/70 font-feather">Script › Characters › <span className="text-white">Scenes</span></div>
+        <div className="font-feather text-[28px]">movie title</div>
       </div>
 
       {/* Tabs */}
@@ -127,7 +124,7 @@ export default function TimelinePage() {
                   <div className="text-sm text-white/60">00:00 - {`00:${String(s.durationSec).padStart(2, "0")}`}</div>
                 </div>
                 <div className="h-px w-full bg-white/10 mb-4" />
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-flow-col auto-cols-[minmax(260px,1fr)] gap-6 overflow-x-auto pb-2">
                   {s.frames.map((f, i) => (
                     <button
                       key={i}
@@ -160,7 +157,7 @@ export default function TimelinePage() {
                 <AccordionItem key={s.id} value={s.id}>
                   <AccordionTrigger
                     onClick={() => setSelected({ sceneId: s.id, frameIndex: 0 })}
-                    className={`font-feather text-[20px]`}
+                    className="font-feather text-[20px]"
                   >
                     {s.title}
                     <span className="ml-2 text-sm text-white/60">00:00 - {`00:${String(s.durationSec).padStart(2, "0")}`}</span>
@@ -200,3 +197,5 @@ export default function TimelinePage() {
     </div>
   );
 }
+
+
