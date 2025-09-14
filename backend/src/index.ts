@@ -39,7 +39,7 @@ async function bootstrap() {
       });
     });
 
-    const port = parseInt(process.env.PORT || '3000');
+    const port = parseInt(process.env.PORT || '5000');
     const host = process.env.HOST || '0.0.0.0';
 
     await server.listen({ port, host });

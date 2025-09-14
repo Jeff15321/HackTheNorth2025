@@ -1,81 +1,16 @@
-import { characterGallaryDataEntry, setCharacterGallaryData } from "@/data/characterData";
-import { getDefaultRecommendationSongs, setRecommendedSongs } from "@/data/songData";
-import { GalleryCategory } from "@/data/characterData";
+import { api } from "@/lib/apiClient";
+import { DirectorInitialResponseSchema } from "@/types/backend";
 
-function getDefaultTopScript(): string {
-    return `
-In the heart of the city, beneath the constant hum of traffic and chatter, a small workshop quietly thrived. Its shelves overflowed with curious devices—half-finished clocks, glowing crystals, and notebooks filled with scribbles no one but the inventor could decipher.
-\n
-Each morning began the same way: the kettle whistled, the window blinds creaked open, and a single beam of light illuminated the cluttered desk. To most, the mess looked impossible to navigate, but to the inventor it was a map—every object exactly where it needed to be.\n
-Tools aligned in rows. Sketches pinned to corkboards. The faint smell of solder lingering in the air.
-\n
-One afternoon, while the rain tapped steadily on the windows, a knock echoed at the door.\n\n
-Standing in the doorway was a traveler, soaked to the bone, carrying a box wrapped in weathered leather. The traveler said little, but the look in their eyes spoke volumes: urgency, fear, and hope all tangled together.
-\n
-The inventor unwrapped the box, revealing a mechanism unlike anything seen before. Its gears shimmered, turning slowly on their own, as if guided by an unseen hand.\n\n
-What followed would change everything—nights of endless tinkering, sparks flying, and discoveries that stretched the very definition of possibility. But it all began in that small workshop, on that rainy day, with a single knock at the door.
-    `;
-    }
-
-  export const characterGallaryData: Record<GalleryCategory, characterGallaryDataEntry[]> = {
-    characters: [
-      {
-        image: "/images/images.jpg",
-        description:
-          "A misty shoreline at dawn. The first light reveals hidden shapes and quiet motion in the waves.",
-      },
-      {
-        image: "/images/images.jpg",
-        description:
-          "An old workshop desk with scattered notes and brass instruments, paused mid-experiment.",
-      },
-      {
-        image: "/images/images.jpg",
-        description:
-          "A city alley glowing with neon. Reflections ripple across puddles after a sudden rain.",
-      },
-      {
-        image: "/images/cat1.jpg",
-        description:
-          "A mountain pass under a violet sky. Thin air, long echoes, and the distant sound of wind.",
-      },
-    ],
-    objects: [
-      {
-        image: "/images/cat1.jpg",
-        description: "A vintage camera resting on a wooden shelf, its lens reflecting soft window light.",
-      },
-      {
-        image: "/images/images.jpg",
-        description: "A brass pocket watch with intricate engravings, stopped at midnight.",
-      },
-    ],
-      scenes: [
-        {
-          image: "/images/images.jpg",
-          description: "A quiet library aisle, dust motes dancing in the projector beam.",
-        },
-        {
-          image: "/images/cat1.jpg",
-          description: "A roadside diner at dusk, neon sign buzzing against a pink sky.",
-        },
-      ],
+export async function talkToScriptAgent(prompt: string): Promise<string> {
+  const res = await api.post<any>(`/api/director/initial`, {
+    user_concept: prompt,
+  });
+  const parsed = DirectorInitialResponseSchema.safeParse(res);
+  if (parsed.success) {
+    // Return the director's textual response for display
+    return parsed.data.director_response;
   }
-  
-export async function talkToScriptAgent(_prompt: string): Promise<string> {
-  // Simulate network latency (~3s) then return content
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-  // Future API call placeholder:
-  // const res = await fetch('/api/talkToScriptAgent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: _prompt }) });
-  // const json = await res.json();
-  // return json.content;
-  try {
-    setRecommendedSongs(getDefaultRecommendationSongs());
-  } catch {}
-
-  try {
-    setCharacterGallaryData(characterGallaryData);
-  } catch {}
-  
-  return getDefaultTopScript();
+  // Fallback to string if backend returns plain text in the future
+  if (typeof res === 'string') return res;
+  return JSON.stringify(res);
 }

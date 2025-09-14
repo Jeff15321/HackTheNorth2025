@@ -13,7 +13,7 @@
  * 6. Stitching know: all videos + final assembly context
  */
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://localhost:5000';
 
 // Types for test data
 interface TestProject {

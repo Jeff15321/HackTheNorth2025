@@ -9,6 +9,8 @@ import PagesOverlay from "@/components/pages/PagesOverlay";
 import { getCharacters } from "@/data/sceneData";
 import ModelSwitcherPanel from "@/components/pages/ModelSwitcherPanel";
 import * as THREE from "three";
+import { useBackendStore } from "@/store/backendStore";
+import { useCreateProject } from "@/hooks/useCreateProject";
 
 export default function Home() {
   const spacing = 3.2;
@@ -29,6 +31,26 @@ export default function Home() {
   const focusModel = useSceneStore((s) => s.focusModel);
   const [panelOpen, setPanelOpen] = useState(false);
   // const resetSelectionAndCamera = useSceneStore((s) => s.resetSelectionAndCamera);
+  const projectId = useBackendStore((s) => s.projectId);
+  const setProjectId = useBackendStore((s) => s.setProjectId);
+  const createProject = useCreateProject();
+
+  // Load projectId from localStorage once on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("projectId");
+      if (saved && !projectId) setProjectId(saved);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist projectId to localStorage when it changes
+  useEffect(() => {
+    try {
+      if (projectId) localStorage.setItem("projectId", projectId);
+    } catch {}
+  }, [projectId]);
+
 
   // Update camera target to focused model position (original + focusedOffset) in an effect
   // to avoid updating state during render.
@@ -81,65 +103,87 @@ export default function Home() {
   const backgroundUrl = focusedModelIndex !== null ? (instances as any)[focusedModelIndex]?.background_path : undefined;
   return (
     <div className="min-h-screen w-full">
-      <div className="h-screen w-full relative">
-        <Scene3D backgroundUrl={"/background/background1.png"}>
-          <CameraRig target={cameraTarget ?? undefined} zOffset={6} idlePosition={idleCameraPos} />
-          {focusedModelIndex === null ? (
-            <Hero3D
-              index={currentIndex}
-              position={instances[currentIndex].position}
-              pageId={instances[currentIndex].pageId}
-              zoomActive={!!selectedPageId}
-              glbPath={(instances as any)[currentIndex]?.glb_path}
-            />
-          ) : (
-            // Render only the focused model centered at origin for emphasis
-            <group >
-              <Hero3D
-                index={focusedModelIndex}
-                position={(() => {
-                  const inst = instances[focusedModelIndex];
-                  const x = inst.position[0];
-                  const y = inst.position[1];
-                  return [x, y, 0] as [number, number, number];
-                })()}
-                pageId={instances[focusedModelIndex]?.pageId}
-                zoomActive={!!selectedPageId}
-                glbPath={(instances as any)[focusedModelIndex]?.glb_path}
-              />
-            </group>
-          )}
-        </Scene3D>
-
-        {/* Top-left progress bar and navigation */}
-        <div style={{ position: "fixed", top: 12, left: 12, zIndex: 50, display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 200, height: 10, background: "rgba(255,255,255,0.6)", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)" }}>
-            <div style={{ width: `${pct}%`, height: "100%", background: "#10B981" }} />
-          </div>
-          <span style={{ color: "#111", fontSize: 12 }}>{done}/{total}</span>
-          <button onClick={goPrev} className="px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white">Prev</button>
-          <button onClick={goNext} className={`px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white ${nextIsComplete ? "animate-pulse" : ""}`}>Next</button>
+      {!projectId ? (
+        <div className="min-h-screen w-full flex items-center justify-center">
+          <button
+            onClick={async () => {
+              try {
+                const title = "My Film Project";
+                const summary = "Created from homepage";
+                const p = await createProject.mutateAsync({ title, summary });
+                setProjectId(p.id);
+              } catch (e) {
+                // eslint-disable-next-line no-console
+                console.error("Create project failed", e);
+              }
+            }}
+            className="px-6 py-3 rounded-lg bg-gray-900 text-white shadow hover:bg-gray-800"
+            disabled={createProject.isPending}
+          >
+            {createProject.isPending ? "Creating…" : "Create Project"}
+          </button>
         </div>
+      ) : (
+        <div className="h-screen w-full relative">
+          <Scene3D backgroundUrl={"/background/background1.png"}>
+            <CameraRig target={cameraTarget ?? undefined} zOffset={6} idlePosition={idleCameraPos} />
+            {focusedModelIndex === null ? (
+              <Hero3D
+                index={currentIndex}
+                position={instances[currentIndex].position}
+                pageId={instances[currentIndex].pageId}
+                zoomActive={!!selectedPageId}
+                glbPath={(instances as any)[currentIndex]?.glb_path}
+              />
+            ) : (
+              // Render only the focused model centered at origin for emphasis
+              <group >
+                <Hero3D
+                  index={focusedModelIndex}
+                  position={(() => {
+                    const inst = instances[focusedModelIndex];
+                    const x = inst.position[0];
+                    const y = inst.position[1];
+                    return [x, y, 0] as [number, number, number];
+                  })()}
+                  pageId={instances[focusedModelIndex]?.pageId}
+                  zoomActive={!!selectedPageId}
+                  glbPath={(instances as any)[focusedModelIndex]?.glb_path}
+                />
+              </group>
+            )}
+          </Scene3D>
 
-        {/* Toggle Button - fixed bottom-left */}
-        <button
-          onClick={() => setPanelOpen((v) => !v)}
-          className="fixed left-4 bottom-4 z-50 px-4 py-2 rounded-lg bg-white/90 text-gray-900 shadow hover:bg-white"
-        >
-          {panelOpen ? "Close Panel" : "Open Panel"}
-        </button>
+          {/* Top-left progress bar and navigation */}
+          <div style={{ position: "fixed", top: 12, left: 12, zIndex: 50, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 200, height: 10, background: "rgba(255,255,255,0.6)", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)" }}>
+              <div style={{ width: `${pct}%`, height: "100%", background: "#10B981" }} />
+            </div>
+            <span style={{ color: "#111", fontSize: 12 }}>{done}/{total}</span>
+            <button onClick={goPrev} className="px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white">Prev</button>
+            <button onClick={goNext} className={`px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white ${nextIsComplete ? "animate-pulse" : ""}`}>Next</button>
+          </div>
 
-        <ModelSwitcherPanel
-          isOpen={panelOpen}
-          onClose={() => setPanelOpen(false)}
-          onSelectIndex={(idx) => { closePage(); clearFocus(); setCurrentIndex(idx); }}
-          onShowAll={() => clearFocus()}
-          buttonLabels={instances.map((_, idx) => `Show Character ${idx + 1}`)}
-        />
+          {/* Toggle Button - fixed bottom-left */}
+          <button
+            onClick={() => setPanelOpen((v) => !v)}
+            className="fixed left-4 bottom-4 z-50 px-4 py-2 rounded-lg bg-white/90 text-gray-900 shadow hover:bg-white"
+          >
+            {panelOpen ? "Close Panel" : "Open Panel"}
+          </button>
 
-        {/* Six page sidebars; all mounted, visibility toggled by selectedPageId */}
-        <PagesOverlay />
-      </div>
+          <ModelSwitcherPanel
+            isOpen={panelOpen}
+            onClose={() => setPanelOpen(false)}
+            onSelectIndex={(idx) => { closePage(); clearFocus(); setCurrentIndex(idx); }}
+            onShowAll={() => clearFocus()}
+            buttonLabels={instances.map((_, idx) => `Show Character ${idx + 1}`)}
+          />
+
+          {/* Six page sidebars; all mounted, visibility toggled by selectedPageId */}
+          <PagesOverlay />
+        </div>
+      )}
     </div>
   );
 }

@@ -40,9 +40,9 @@ A high-performance backend for AI-powered film production featuring hierarchical
    ```
 
 4. **Access the Application**:
-   - **Server**: http://localhost:3000
-   - **API Docs**: http://localhost:3000/docs
-   - **Test Interface**: http://localhost:3000/test/test.html
+   - **Server**: http://localhost:5000
+   - **API Docs**: http://localhost:5000/docs
+   - **Test Interface**: http://localhost:5000/test/test.html
 
 ## Environment Variables
 
@@ -59,7 +59,7 @@ GEMINI_API_KEYS=key1,key2,key3  # Comma-separated for cycling
 FAL_KEY=your_fal_ai_key
 
 # Server
-PORT=3000
+PORT=5000
 NODE_ENV=development
 ```
 
