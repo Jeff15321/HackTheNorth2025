@@ -30,6 +30,7 @@ export default function Home() {
   const openPage = useSceneStore((s) => s.openPage);
   const focusModel = useSceneStore((s) => s.focusModel);
   const [panelOpen, setPanelOpen] = useState(false);
+  const glbOverrides = useSceneStore((s) => s.glbOverrides);
   // const resetSelectionAndCamera = useSceneStore((s) => s.resetSelectionAndCamera);
   const projectId = useBackendStore((s) => s.projectId);
   const setProjectId = useBackendStore((s) => s.setProjectId);
@@ -40,7 +41,7 @@ export default function Home() {
     try {
       const saved = localStorage.getItem("projectId");
       if (saved && !projectId) setProjectId(saved);
-    } catch {}
+    } catch { }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -48,7 +49,7 @@ export default function Home() {
   useEffect(() => {
     try {
       if (projectId) localStorage.setItem("projectId", projectId);
-    } catch {}
+    } catch { }
   }, [projectId]);
 
 
@@ -133,7 +134,8 @@ export default function Home() {
                 position={instances[currentIndex].position}
                 pageId={instances[currentIndex].pageId}
                 zoomActive={!!selectedPageId}
-                glbPath={(instances as any)[currentIndex]?.glb_path}
+                glbPath={glbOverrides[currentIndex] ?? (instances as any)[currentIndex]?.glb_path}
+                xRotationLock={(instances as any)[currentIndex]?.xRotationLock}
               />
             ) : (
               // Render only the focused model centered at origin for emphasis
@@ -148,7 +150,8 @@ export default function Home() {
                   })()}
                   pageId={instances[focusedModelIndex]?.pageId}
                   zoomActive={!!selectedPageId}
-                  glbPath={(instances as any)[focusedModelIndex]?.glb_path}
+                  glbPath={glbOverrides[focusedModelIndex] ?? (instances as any)[focusedModelIndex]?.glb_path}
+                  xRotationLock={(instances as any)[focusedModelIndex]?.xRotationLock}
                 />
               </group>
             )}
