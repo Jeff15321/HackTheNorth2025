@@ -58,8 +58,44 @@ class TestLogger {
     const timestamp = new Date().toISOString();
     console.log(`${emoji} [${timestamp}] ${message}`);
     if (data !== undefined) {
-      console.log(JSON.stringify(data, null, 2));
+      console.log(JSON.stringify(this.sanitizeLogData(data), null, 2));
     }
+  }
+
+  private static sanitizeLogData(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
+
+    const sanitized = { ...data };
+    
+    // Sanitize image URLs (base64 data URLs)
+    if (sanitized.image_url && typeof sanitized.image_url === 'string') {
+      if (sanitized.image_url.startsWith('data:image/')) {
+        sanitized.image_url = `[DATA_URL:${sanitized.image_url.split(',')[0]}:${sanitized.image_url.length} chars]`;
+      }
+    }
+    
+    // Sanitize video URLs  
+    if (sanitized.video_url && typeof sanitized.video_url === 'string') {
+      if (sanitized.video_url.startsWith('data:video/')) {
+        sanitized.video_url = `[DATA_URL:${sanitized.video_url.split(',')[0]}:${sanitized.video_url.length} chars]`;
+      }
+    }
+    
+    // Filter out image_url and video_url from output_keys arrays
+    if (sanitized.output_keys && Array.isArray(sanitized.output_keys)) {
+      sanitized.output_keys = sanitized.output_keys.filter((key: string) => !['image_url', 'video_url'].includes(key));
+    }
+    
+    // Recursively sanitize nested objects
+    for (const key in sanitized) {
+      if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
+        sanitized[key] = this.sanitizeLogData(sanitized[key]);
+      }
+    }
+    
+    return sanitized;
   }
 
   static info(message: string, data?: any): void {
@@ -92,7 +128,8 @@ class APIClient {
 
   async call<T = any>(method: string, endpoint: string, body?: any): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    TestLogger.debug(`${method} ${url}`, body);
+    const safeBody = body && typeof body === 'object' ? Object.keys(body) : body;
+    TestLogger.debug(`${method} ${url}`, { body_keys: safeBody });
 
     const options: RequestInit = {
       method,
@@ -149,7 +186,10 @@ class JobMonitor {
       TestLogger.debug(`Job ${jobId}: ${status.status} (${status.progress}%)`);
 
       if (status.status === 'completed') {
-        TestLogger.success(`Job ${jobId} completed!`, status.output_data);
+        TestLogger.success(`Job ${jobId} completed!`, {
+          output_keys: status.output_data ? Object.keys(status.output_data).filter(key => !['image_url', 'video_url'].includes(key)) : [],
+          has_output: !!status.output_data
+        });
         return status;
       }
 
@@ -365,11 +405,18 @@ class E2EContextTest {
       });
 
       const jobResult = await this.monitor.waitForCompletion(jobResponse.job_id);
+    
+      // don't include image_url and video_url in the log
+      // DO NOT INCLUDE THE FIELDS image_url and video_url IN THE LOG
+      const { image_url, video_url, ...rest } = jobResult.output_data || {};
+      console.log(JSON.stringify(rest, null, 2));
 
       if (jobResult.output_data?.character_id) {
         this.results.characterIds.push(jobResult.output_data.character_id);
         TestLogger.success(`Character ${character.name} generated: ${jobResult.output_data.character_id}`, {
-          character_data: jobResult.output_data.character_data
+          character_name: jobResult.output_data.character_data?.name,
+          has_description: !!jobResult.output_data.character_data?.description,
+          has_image: !!jobResult.output_data.image_url
         });
       } else {
         throw new Error(`Character generation failed for ${character.name}: no character_id in result`);
@@ -395,16 +442,14 @@ class E2EContextTest {
 
       const jobResult = await this.monitor.waitForCompletion(jobResponse.job_id);
 
-      if (jobResult.output_data?.image_url) {
-        // Track object by job result data since objects return image URLs
-        const objectId = `obj_${jobResponse.job_id}`;
-        this.results.objectIds.push(objectId);
-        TestLogger.success(`Object ${object.object_type} generated: ${objectId}`, {
-          image_url: jobResult.output_data.image_url,
-          file_size: jobResult.output_data.file_size
+      if (jobResult.output_data?.object_id) {
+        this.results.objectIds.push(jobResult.output_data.object_id);
+        TestLogger.success(`Object ${object.object_type} generated: ${jobResult.output_data.object_id}`, {
+          has_image: !!jobResult.output_data.image_url,
+          image_type: jobResult.output_data.image_url?.startsWith('data:image/') ? 'data_url' : 'external_url'
         });
       } else {
-        throw new Error(`Object generation failed for ${object.object_type}: no image_url in result`);
+        throw new Error(`Object generation failed for ${object.object_type}: no object_id in result`);
       }
     }
 
@@ -530,8 +575,8 @@ class E2EContextTest {
     if (jobResult.output_data?.video_url) {
       this.results.finalVideoId = jobResponse.job_id;
       TestLogger.success(`Final video stitched: ${this.results.finalVideoId}`, {
-        video_url: jobResult.output_data.video_url,
-        file_size: jobResult.output_data.file_size,
+        has_video: !!jobResult.output_data.video_url,
+        video_type: jobResult.output_data.video_url?.startsWith('data:video/') ? 'data_url' : 'external_url',
         duration: jobResult.output_data.duration
       });
     } else {
@@ -558,7 +603,8 @@ class E2EContextTest {
 
       TestLogger.success('Image editing with upload successful:', {
         job_id: jobResponse.job_id,
-        output: jobResult.output_data
+        output_keys: jobResult.output_data ? Object.keys(jobResult.output_data).filter(key => !['image_url', 'video_url'].includes(key)) : [],
+        has_image_result: !!(jobResult.output_data?.image_url)
       });
     } catch (error) {
       TestLogger.warn('Image editing test failed (expected if no actual image processing):', (error as Error).message);

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { CreateProjectSchema } from '../models/schemas.js';
 import { createProject, getProject, updateProject } from '../utils/database.js';
+import { getConversationContext } from '../utils/conversation.js';
 
 export async function projectRoutes(fastify: FastifyInstance) {
   const projectsSchema = {
@@ -104,7 +105,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
         });
       }
 
-      reply.send(project);
+      // Get conversation context
+      const conversationId = `project_${id}`;
+      const context = await getConversationContext(conversationId) || {};
+      
+      reply.send({
+        ...project,
+        context
+      });
     } catch (error: any) {
       fastify.log.error('Error fetching project:', error);
       reply.raw.writeHead(500, { 'Content-Type': 'application/json' });

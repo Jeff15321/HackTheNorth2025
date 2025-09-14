@@ -5,7 +5,7 @@ import { SchemaType, type Schema } from '@google/generative-ai';
 import {
   storeConversationContext,
   getConversationContext,
-  storeConversationMessage,
+  createConversationMessage,
   getConversationMessages,
   type ConversationContext
 } from '../utils/conversation';
@@ -309,7 +309,7 @@ Provide guidance and any relevant function calls to help the user.
           };
 
           try {
-            await storeConversationMessage(message);
+            await createConversationMessage(message.conversation_id, 'user', message.user_query);
           } catch (error) {
             console.error('Failed to store conversation message:', error);
           }
@@ -469,6 +469,152 @@ Provide guidance and any relevant function calls to help the user.
         message: error?.message || 'Unable to retrieve conversation messages'
       });
     }
+  });
+
+  fastify.post('/api/director/converse', {
+    schema: {
+      tags: ['Director'],
+      summary: 'Have a conversation with the AI director',
+      body: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          message: { type: 'string' },
+          context: { type: 'object' }
+        },
+        required: ['project_id', 'message']
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            response: { type: 'string' },
+            context: { type: 'object' },
+            suggestions: {
+              type: 'array',
+              items: { type: 'string' }
+            }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { project_id, message, context = {} } = request.body as any;
+
+    // Get conversation history
+    const conversationId = `project_${project_id}`;
+    const messages = await getConversationMessages(conversationId);
+    const currentContext = await getConversationContext(conversationId) || context;
+
+    // Build conversation history for AI
+    const conversationHistory = messages.map(msg => {
+      if (msg.user_query) {
+        return `User: ${msg.user_query}`;
+      } else if (msg.director_response) {
+        return `Director: ${msg.director_response}`;
+      }
+      return '';
+    }).filter(Boolean).join('\n');
+
+    const prompt = `
+You are an AI film director helping a user create their film. You have the following context about the project:
+
+${JSON.stringify(currentContext, null, 2)}
+
+Previous conversation:
+${conversationHistory}
+
+User's current message: ${message}
+
+Your task is to:
+1. Respond helpfully to the user's message
+2. Extract and update any relevant context (plot, characters, themes, etc.)
+3. Guide them towards having enough information to start generating content
+
+When you have a clear plot and at least 2-3 characters defined, include them in the context.`;
+
+    const response = await generateJSON<{
+      response: string;
+      context: any;
+      suggestions: string[];
+    }>(
+      prompt,
+      {
+        type: SchemaType.OBJECT,
+        properties: {
+          response: { 
+            type: SchemaType.STRING,
+            description: "Your conversational response to the user"
+          },
+          context: {
+            type: SchemaType.OBJECT,
+            properties: {
+              plot: { 
+                type: SchemaType.STRING,
+                nullable: true,
+                description: "The main plot of the film"
+              },
+              characters: {
+                type: SchemaType.ARRAY,
+                nullable: true,
+                items: {
+                  type: SchemaType.OBJECT,
+                  properties: {
+                    name: { type: SchemaType.STRING },
+                    description: { type: SchemaType.STRING }
+                  },
+                  required: ["name", "description"]
+                }
+              },
+              themes: {
+                type: SchemaType.ARRAY,
+                nullable: true,
+                items: { type: SchemaType.STRING }
+              },
+              setting: {
+                type: SchemaType.STRING,
+                nullable: true
+              }
+            }
+          },
+          suggestions: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
+            description: "Suggested next questions or actions"
+          }
+        },
+        required: ["response", "context", "suggestions"]
+      }
+    );
+
+    // Store conversation
+    await createConversationMessage(conversationId, 'user', message, {});
+    await createConversationMessage(conversationId, 'assistant', response.response, {});
+
+    // Update context
+    const updatedContext = { ...currentContext, ...response.context };
+    
+    const contextToStore: ConversationContext = {
+      conversation_id: conversationId,
+      user_concept: updatedContext.plot || '',
+      director_response: response.response,
+      suggested_questions: response.suggestions,
+      character_suggestions: updatedContext.characters || [],
+      plot_outline: updatedContext.plot || '',
+      next_step: 'Continue conversation',
+      created_at: currentContext.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      session_state: 'active',
+      project_id: project_id
+    };
+    
+    await storeConversationContext(contextToStore);
+
+    return reply.send({
+      response: response.response,
+      context: updatedContext,
+      suggestions: response.suggestions
+    });
   });
 
   fastify.get('/api/director/pages', {

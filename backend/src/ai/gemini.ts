@@ -9,7 +9,7 @@ const PROMPTS = {
   CHARACTER_SYSTEM: 'You are a professional character designer. Create detailed character descriptions in JSON format with fields: name, age, personality, description.',
   SCRIPT_SYSTEM: 'You are a professional screenwriter. Generate detailed scripts with dialogue, scene descriptions, and camera directions. Keep scenes under 8 seconds for video generation.',
   SCENE_SYSTEM: 'You are a film director. Generate detailed scene breakdowns in JSON format with fields: detailed_plot, concise_plot, duration, dialogue.',
-  FRAME_SYSTEM: 'You are a video prompt engineer. Generate Veo 3 video prompts in JSON format with fields: veo3_prompt, dialogue, duration_constraint, split_reason.',
+  FRAME_SYSTEM: 'You are a video prompt engineer. Generate Veo 3 video prompts in JSON format with fields: veo3_prompt, dialogue, summary, split_reason.',
   PLOT_SYSTEM: 'You are a professional story consultant. Generate detailed plot outlines with clear story beats, character arcs, and scene breakdowns.'
 };
 

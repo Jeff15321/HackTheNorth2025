@@ -1,6 +1,5 @@
 import { Worker, Job } from 'bullmq';
-import { generateVideoFromImage, generateVideoFromText, downloadVideo, type VideoGenerationOptions } from '../ai/fal.js';
-import { saveBlobFile, generateAssetFilename } from '../utils/blob.js';
+import { generateVideoFromImage, generateVideoFromText, type VideoGenerationOptions } from '../ai/fal.js';
 import { updateJobStatus, queueConnection } from '../utils/queue.js';
 
 // Use shared connection from queue.js to ensure event listeners work
@@ -20,7 +19,7 @@ export function createVideoWorker() {
 }
 
 async function processVideoGeneration(job: Job) {
-  const { project_id, input_data } = job.data;
+  const { input_data } = job.data;
   const { prompt, image_url, metadata } = input_data;
 
   try {
@@ -38,38 +37,26 @@ async function processVideoGeneration(job: Job) {
     let videoUrl: string;
 
     if (image_url) {
-      await updateJobStatus(job.id!, 'processing', 20);
+      await updateJobStatus(job.id!, 'processing', 30);
       videoUrl = await generateVideoFromImage(image_url, prompt, videoOptions);
     } else {
-      await updateJobStatus(job.id!, 'processing', 20);
+      await updateJobStatus(job.id!, 'processing', 30);
       videoUrl = await generateVideoFromText(prompt, videoOptions);
     }
 
-    await updateJobStatus(job.id!, 'processing', 60);
-
-    console.log(`⬇️  Downloading video from fal.ai...`);
-    const videoBuffer = await downloadVideo(videoUrl);
-
-    await updateJobStatus(job.id!, 'processing', 80);
-
-    const filename = generateAssetFilename('videos', 'mp4', metadata?.name);
-    const localVideoUrl = await saveBlobFile(project_id, 'videos', filename, videoBuffer);
-
-    await updateJobStatus(job.id!, 'processing', 95);
+    await updateJobStatus(job.id!, 'processing', 90);
 
     const result = {
       type: 'video',
-      video_url: localVideoUrl,
-      original_url: videoUrl,
-      filename,
+      video_url: videoUrl,
       prompt,
       image_url,
       metadata,
       options: videoOptions,
-      file_size: videoBuffer.length
+      generated_at: new Date().toISOString()
     };
 
-    console.log(`✅ Video generated: ${filename} (${videoBuffer.length} bytes)`);
+    console.log(`✅ Video generated successfully`);
     return result;
   } catch (error) {
     console.error(`❌ Video generation failed for job ${job.id}:`, error);

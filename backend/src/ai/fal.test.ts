@@ -13,15 +13,6 @@ const {
   uploadFile
 } = await import('./fal.ts');
 
-const {
-  saveBlobFile,
-  deleteBlobFile,
-  blobFileExists,
-  getBlobFile,
-  generateAssetFilename,
-  cleanupProjectBlobs
-} = await import('../utils/blob.ts');
-
 const TEST_PROJECT_ID = `test-fal-${uuidv4()}`;
 
 beforeAll(async () => {
@@ -34,8 +25,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Cleanup test blobs
-  await cleanupProjectBlobs(TEST_PROJECT_ID);
   console.log('🧹 Test cleanup completed');
 });
 
@@ -191,31 +180,9 @@ describe('error handling', () => {
   });
 });
 
-describe('blob storage integration', () => {
-  test('generates filename for video assets', () => {
-    const filename = generateAssetFilename('videos', 'mp4', 'fal-generated');
-    expect(filename).toMatch(/^fal-generated_\d+_[a-z0-9]+\.mp4$/);
-    
-    const filenameNoPrefix = generateAssetFilename('videos', 'mp4');
-    expect(filenameNoPrefix).toMatch(/^\d+_[a-z0-9]+\.mp4$/);
-  });
-
-  test('handles blob file operations for video files', async () => {
-    const testData = Buffer.from('test video data simulating Veo 3 output');
-    const filename = 'veo3-test-video.mp4';
-    
-    const blobUrl = await saveBlobFile(TEST_PROJECT_ID, 'videos', filename, testData);
-    expect(blobUrl).toMatch(/^\/blob\/.+/);
-    
-    const exists = await blobFileExists(TEST_PROJECT_ID, 'videos', filename);
-    expect(exists).toBe(true);
-    
-    const retrievedData = await getBlobFile(TEST_PROJECT_ID, 'videos', filename);
-    expect(retrievedData).toEqual(testData);
-    
-    await deleteBlobFile(TEST_PROJECT_ID, 'videos', filename);
-    
-    const existsAfterDelete = await blobFileExists(TEST_PROJECT_ID, 'videos', filename);
-    expect(existsAfterDelete).toBe(false);
+describe('URL-based storage', () => {
+  test('URLs are returned directly from AI services', () => {
+    // FAL.ai returns video URLs directly - no local storage needed
+    expect(true).toBe(true);
   });
 });

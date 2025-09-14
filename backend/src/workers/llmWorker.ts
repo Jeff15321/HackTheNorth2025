@@ -1,7 +1,7 @@
 import { Worker, Job } from 'bullmq';
-import { generateText, generateJSON, generateScript, generateCharacterDescription, parseReferencedIds } from '../ai/gemini.js';
+import { generateText, generateJSON, generateScript, parseReferencedIds } from '../ai/gemini.js';
 import { SchemaType, type Schema } from '@google/generative-ai';
-import { createCharacter, createScene, createFrame, getCharactersByProject } from '../utils/database.js';
+import { createScene, createFrame, getCharactersByProject } from '../utils/database.js';
 import { updateJobStatus, addJob, queueConnection } from '../utils/queue.js';
 import { buildSceneContext, buildFrameContext, formatContextForPrompt } from '../utils/context.js';
 
@@ -19,16 +19,12 @@ const sceneGenerationSchema: Schema = {
       type: SchemaType.STRING,
       description: "Concise one-sentence summary of the scene"
     },
-    duration: {
-      type: SchemaType.NUMBER,
-      description: "Scene duration in seconds (max 8)"
-    },
     dialogue: {
       type: SchemaType.STRING,
       description: "Dialogue and spoken content for the scene"
     }
   },
-  required: ["detailed_plot", "concise_plot", "duration", "dialogue"]
+  required: ["detailed_plot", "concise_plot", "dialogue"]
 };
 
 const frameGenerationSchema: Schema = {
@@ -42,16 +38,12 @@ const frameGenerationSchema: Schema = {
       type: SchemaType.STRING,
       description: "Clear dialogue timing for the frame"
     },
-    duration_constraint: {
-      type: SchemaType.NUMBER,
-      description: "Maximum duration constraint in seconds (max 8)"
-    },
     split_reason: {
       type: SchemaType.STRING,
       description: "Reason for frame splitting if needed"
     }
   },
-  required: ["veo3_prompt", "dialogue", "duration_constraint"]
+  required: ["veo3_prompt", "dialogue"]
 };
 
 export function createLLMWorker() {
@@ -84,33 +76,44 @@ export function createLLMWorker() {
 }
 
 async function processLLMJob(job: Job) {
-  const { project_id, input_data } = job.data;
-  const { type, prompt, context } = input_data;
-
+  const { project_id, input_data, type: jobType } = job.data;
+  
+  const jobTypeDetermined = jobType || input_data.type;
+  
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
-    console.log(`🤖 Processing LLM job: ${type}`);
+    console.log(`🤖 Processing LLM job: ${jobTypeDetermined}`);
 
     let result: any;
 
-    switch (type) {
+    switch (jobTypeDetermined) {
       case 'script':
-        result = await generateProjectScript(project_id, prompt, context);
+        const { prompt: scriptPrompt, context: scriptContext } = input_data;
+        result = await generateProjectScript(project_id, scriptPrompt, scriptContext);
         break;
       case 'character':
-        result = await generateProjectCharacter(project_id, prompt, context);
+        const { prompt: charPrompt, context: charContext } = input_data;
+        result = await generateProjectCharacter(project_id, charPrompt, charContext);
         break;
       case 'plot':
-        result = await generatePlotOutline(prompt, context);
+        const { prompt: plotPrompt, context: plotContext } = input_data;
+        result = await generatePlotOutline(plotPrompt, plotContext);
+        break;
+      case 'object-analysis':
+        result = await analyzeSceneObjects(input_data);
+        break;
+      case 'frame-analysis':
+        result = await analyzeSceneFrames(input_data);
         break;
       default:
-        result = await generateText(prompt, context?.systemPrompt);
+        const { prompt: defaultPrompt, context: defaultContext } = input_data;
+        result = await generateText(defaultPrompt, defaultContext?.systemPrompt);
     }
 
     await updateJobStatus(job.id!, 'processing', 90);
 
-    console.log(`✅ LLM job completed: ${type}`);
+    console.log(`✅ LLM job completed: ${jobTypeDetermined}`);
     return result;
   } catch (error) {
     console.error(`❌ LLM job failed for ${job.id}:`, error);
@@ -120,8 +123,14 @@ async function processLLMJob(job: Job) {
 
 async function processSceneGeneration(job: Job) {
   const { project_id, input_data } = job.data;
-  const { scene_description, characters_context, plot_context } = input_data;
-
+  const { scene_description, characters_context, plot_context, context } = input_data;
+  
+  // If context is provided, generate multiple scenes
+  if (context?.plot && context?.characters) {
+    return generateMultipleScenes(job, project_id, context);
+  }
+  
+  // Otherwise, generate a single scene
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
@@ -157,7 +166,6 @@ Generate a scene that:
     const sceneData = await generateJSON<{
       detailed_plot: string;
       concise_plot: string;
-      duration: number;
       dialogue: string;
     }>(prompt, sceneGenerationSchema, systemPrompt);
 
@@ -165,7 +173,12 @@ Generate a scene that:
 
     const scene = await createScene({
       project_id,
-      metadata: sceneData
+      metadata: {
+        detailed_plot: sceneData.detailed_plot,
+        concise_plot: sceneData.concise_plot,
+        dialogue: sceneData.dialogue,
+        scene_order: 0
+      }
     });
 
     await updateJobStatus(job.id!, 'processing', 85);
@@ -231,20 +244,31 @@ Generate a Veo 3 video prompt for this frame:
 - Cinematic quality with specific camera angles
 - Clear dialogue timing
 - Visual consistency with character/object descriptions
+
+Also provide:
+- A brief summary of what happens in this frame
+- The exact dialogue spoken (if any)
+- Reason for splitting this frame (if applicable)
 `;
 
     const frameData = await generateJSON<{
       veo3_prompt: string;
       dialogue: string;
-      duration_constraint: number;
-      split_reason?: string;
+      summary: string;
+      split_reason: string;
     }>(prompt, frameGenerationSchema, systemPrompt);
 
     await updateJobStatus(job.id!, 'processing', 70);
 
     const frame = await createFrame({
       project_id,
-      metadata: frameData
+      metadata: {
+        veo3_prompt: frameData.veo3_prompt,
+        dialogue: frameData.dialogue,
+        summary: frameData.summary,
+        split_reason: frameData.split_reason,
+        frame_order: 0
+      }
     });
 
     await updateJobStatus(job.id!, 'processing', 85);
@@ -285,18 +309,9 @@ async function generateProjectScript(projectId: string, plot: string, context: a
 }
 
 async function generateProjectCharacter(projectId: string, characterPrompt: string, context: any) {
-  const characterData = await generateCharacterDescription(characterPrompt, context.plot || '');
-
-  const character = await createCharacter({
-    project_id: projectId,
-    metadata: characterData
-  });
-
-  return {
-    type: 'character',
-    character_id: character.id,
-    character_data: characterData
-  };
+  // Character generation is now handled by the image worker
+  // This function is kept for backward compatibility but should not be used
+  throw new Error('Character generation should be handled by the character-generation worker, not LLM worker');
 }
 
 async function generatePlotOutline(prompt: string, context: any) {
@@ -347,7 +362,7 @@ async function triggerVideoGeneration(projectId: string, frameId: string, frameD
     input_data: {
       frame_id: frameId,
       prompt: frameData.veo3_prompt,
-      duration: frameData.duration_constraint,
+      duration: 8, // Veo 3 always generates 8-second videos
       type: 'frame_video',
       metadata: { frame_id: frameId }
     },
@@ -358,4 +373,153 @@ async function triggerVideoGeneration(projectId: string, frameId: string, frameD
 
   await addJob('video-generation', videoJob);
   console.log(`➕ Triggered video generation for frame ${frameId}`);
+}
+
+async function analyzeSceneObjects(inputData: any) {
+  const { scene_description, context } = inputData;
+  
+  const prompt = `Analyze this scene and determine what objects need to be generated for it.
+
+Scene Description: ${scene_description}
+
+Characters in the film: ${JSON.stringify(context.characters || [], null, 2)}
+
+Return a list of objects that should be generated for this scene. Each object should have:
+- type: The type of object (e.g., "prop", "furniture", "vehicle", "environment")
+- description: A detailed description for image generation
+- environmental_context: How this object fits into the scene
+
+Consider:
+1. Props mentioned in the scene
+2. Environmental elements needed
+3. Background objects
+4. Character-specific items
+5. Setting-appropriate objects
+
+Be selective - only include objects that are important to the scene.`;
+
+  const response = await generateJSON(prompt, {
+    type: SchemaType.OBJECT,
+    properties: {
+      objects: {
+        type: SchemaType.ARRAY,
+        items: {
+          type: SchemaType.OBJECT,
+          properties: {
+            type: { type: SchemaType.STRING },
+            description: { type: SchemaType.STRING },
+            environmental_context: { type: SchemaType.STRING }
+          },
+          required: ["type", "description", "environmental_context"]
+        }
+      }
+    },
+    required: ["objects"]
+  });
+
+  return response;
+}
+
+async function analyzeSceneFrames(inputData: any) {
+  const { scene_description, scene_plot, context } = inputData;
+  
+  const prompt = `Break down this scene into individual frames (shots) for video generation. Each frame will be 8 seconds long.
+
+Scene Description: ${scene_description}
+Scene Plot: ${scene_plot || scene_description}
+
+Characters: ${JSON.stringify(context.characters || [], null, 2)}
+Objects: ${JSON.stringify(context.objects || [], null, 2)}
+
+For each frame, provide:
+- veo3_prompt: A detailed prompt for Veo 3 video generation (describe the shot, camera angle, movement, etc.)
+- dialogue: Any dialogue spoken in this frame (optional)
+- summary: A brief summary of what happens in this frame
+
+Consider:
+1. Establishing shots
+2. Character interactions
+3. Action sequences
+4. Emotional beats
+5. Transitions
+
+Aim for 3-8 frames per scene depending on complexity.`;
+
+  const response = await generateJSON(prompt, {
+    type: SchemaType.OBJECT,
+    properties: {
+      frames: {
+        type: SchemaType.ARRAY,
+        items: {
+          type: SchemaType.OBJECT,
+          properties: {
+            veo3_prompt: { type: SchemaType.STRING },
+            dialogue: { 
+              type: SchemaType.STRING,
+              nullable: true
+            },
+            summary: { type: SchemaType.STRING },
+          },
+          required: ["veo3_prompt", "summary"]
+        }
+      }
+    },
+    required: ["frames"]
+  });
+
+  return response;
+}
+
+async function generateMultipleScenes(job: Job, projectId: string, context: any) {
+  await updateJobStatus(job.id!, 'processing', 10);
+  
+  console.log(`Generating multiple scenes for project ${projectId}`);
+  
+  const prompt = `Based on the following plot and characters, generate a sequence of scenes for a short film.
+
+Plot: ${context.plot}
+
+Characters:
+${context.characters.map((c: any) => `- ${c.name}: ${c.description}`).join('\n')}
+
+Generate 3-6 scenes that tell this story. Each scene should:
+1. Have a clear title
+2. Have a concise plot (1-2 sentences)  
+3. Have a detailed plot (full description)
+4. Include a visual description for image generation
+5. Be logically connected to the overall narrative
+6. Be 8-30 seconds in duration
+
+Focus on key story beats and character moments.`;
+
+  const response = await generateJSON<{ scenes: any[] }>(prompt, {
+    type: SchemaType.OBJECT,
+    properties: {
+      scenes: {
+        type: SchemaType.ARRAY,
+        items: {
+          type: SchemaType.OBJECT,
+          properties: {
+            title: { type: SchemaType.STRING },
+            concise_plot: { type: SchemaType.STRING },
+            detailed_plot: { type: SchemaType.STRING },
+            visual_description: { type: SchemaType.STRING },
+            scene_order: { type: SchemaType.NUMBER },
+            duration: { 
+              type: SchemaType.NUMBER,
+              description: "Duration in seconds (8-30)"
+            }
+          },
+          required: ["title", "concise_plot", "detailed_plot", "visual_description", "scene_order"]
+        }
+      }
+    },
+    required: ["scenes"]
+  });
+
+  await updateJobStatus(job.id!, 'processing', 90);
+  
+  console.log(`✅ Generated ${response.scenes.length} scenes`);
+  
+  return response;
 }

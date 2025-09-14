@@ -2,9 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import staticFiles from '@fastify/static';
 import multipart from '@fastify/multipart';
-import { join } from 'path';
 
 export async function createServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -111,11 +109,6 @@ export async function createServer(): Promise<FastifyInstance> {
     }
   });
 
-  await server.register(staticFiles, {
-    root: join(process.cwd(), 'src', 'blob'),
-    prefix: '/blob/',
-    decorateReply: false
-  });
 
   server.get('/', async () => {
     return {

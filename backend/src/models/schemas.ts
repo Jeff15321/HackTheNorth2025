@@ -11,7 +11,7 @@ export const ProjectSchema = z.object({
 
 export const CharacterMetadataSchema = z.object({
   name: z.string(),
-  age: z.number().optional(),
+  age: z.number(),
   personality: z.string(),
   description: z.string()
 });
@@ -19,7 +19,7 @@ export const CharacterMetadataSchema = z.object({
 export const CharacterSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  media_url: z.string().optional(),
   metadata: CharacterMetadataSchema,
   created_at: z.string().datetime().optional()
 });
@@ -27,14 +27,14 @@ export const CharacterSchema = z.object({
 export const SceneMetadataSchema = z.object({
   detailed_plot: z.string(),
   concise_plot: z.string(),
-  duration: z.number().optional(),
-  dialogue: z.string().optional()
+  dialogue: z.string(),
+  scene_order: z.number()
 });
 
 export const SceneSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  media_url: z.string().optional(), // Allow both URLs and data URLs
   metadata: SceneMetadataSchema
 });
 
@@ -47,22 +47,25 @@ export const ObjectMetadataSchema = z.object({
 export const ObjectSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  scene_id: z.string().uuid().optional(),
+  media_url: z.string().optional(), // Allow both URLs and data URLs
   metadata: ObjectMetadataSchema,
   created_at: z.string().datetime().optional()
 });
 
 export const FrameMetadataSchema = z.object({
   veo3_prompt: z.string(),
-  dialogue: z.string().optional(),
-  duration_constraint: z.number(),
-  split_reason: z.string().optional()
+  dialogue: z.string(),
+  summary: z.string(),
+  split_reason: z.string(),
+  frame_order: z.number()
 });
 
 export const FrameSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().url().optional(),
+  scene_id: z.string().uuid().optional(),
+  media_url: z.string().optional(), // Allow both URLs and data URLs
   metadata: FrameMetadataSchema
 });
 
@@ -76,7 +79,9 @@ export const JobTypeSchema = z.enum([
   'video-generation',
   'video-stitching',
   'script-generation',
-  'image-editing'
+  'image-editing',
+  'object-analysis',
+  'frame-analysis'
 ]);
 
 export const JobSchema = z.object({

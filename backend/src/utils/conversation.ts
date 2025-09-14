@@ -1,4 +1,5 @@
 import { getRedisClient } from './queue.js';
+import { randomUUID } from 'crypto';
 
 interface CharacterSuggestion {
   name: string;
@@ -162,10 +163,34 @@ export async function storeConversationMessage(message: ConversationMessage): Pr
   const messageData = JSON.stringify(message);
   const timestamp = new Date(message.timestamp).getTime();
 
+  // Check if timestamp is valid
+  if (isNaN(timestamp)) {
+    throw new Error(`Invalid timestamp provided: ${message.timestamp}`);
+  }
+
   await redis.zAdd(key, { score: timestamp, value: messageData });
   await redis.expire(key, CONVERSATION_TTL);
 
   console.log(`Stored conversation message: ${message.id} for conversation ${message.conversation_id}`);
+}
+
+// Helper function to create conversation messages
+export async function createConversationMessage(
+  conversationId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  context: MessageContext = {}
+): Promise<void> {
+  const message: ConversationMessage = {
+    id: randomUUID(),
+    conversation_id: conversationId,
+    user_query: role === 'user' ? content : '',
+    director_response: role === 'assistant' ? content : '',
+    context,
+    timestamp: new Date().toISOString()
+  };
+
+  await storeConversationMessage(message);
 }
 
 export async function getConversationMessages(
@@ -176,10 +201,7 @@ export async function getConversationMessages(
   const key = `${CONVERSATION_MESSAGES_PREFIX}${conversationId}`;
 
   try {
-    if (!redis.zRevRange) {
-      throw new Error('Redis zRevRange method not available');
-    }
-    const messages = await redis.zRevRange(key, 0, limit - 1);
+    const messages = await redis.zRange(key, 0, limit - 1, { REV: true });
 
     if (!Array.isArray(messages)) {
       return [];

@@ -182,7 +182,7 @@ export async function createObject(object: Omit<Object, 'id'>): Promise<Object> 
     throw new Error(`Failed to create object: ${error.message}`);
   }
 
-  console.log(`📦 Created object: ${data.metadata.type} (${data.id})`);
+  console.log(`📦 Created object: ${data.metadata.type} (${data.id})${object.scene_id ? ` for scene ${object.scene_id}` : ''}`);
   return data;
 }
 
@@ -219,7 +219,7 @@ export async function createFrame(frame: Omit<Frame, 'id'>): Promise<Frame> {
     throw new Error(`Failed to create frame: ${error.message}`);
   }
 
-  console.log(`🎞️  Created frame: ${data.id}`);
+  console.log(`🎞️  Created frame: ${data.id}${frame.scene_id ? ` for scene ${frame.scene_id}` : ''}`);
   return data;
 }
 
@@ -233,6 +233,37 @@ export async function getFramesByProject(projectId: string): Promise<Frame[]> {
   if (error) {
     console.error('❌ Error fetching frames:', error);
     throw new Error(`Failed to fetch frames: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+export async function getObjectsByScene(sceneId: string): Promise<Object[]> {
+  const db = getDatabase();
+  const { data, error } = await db
+    .from('objects')
+    .select('*')
+    .eq('scene_id', sceneId);
+
+  if (error) {
+    console.error('❌ Error fetching objects by scene:', error);
+    throw new Error(`Failed to fetch objects by scene: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+export async function getFramesByScene(sceneId: string): Promise<Frame[]> {
+  const db = getDatabase();
+  const { data, error } = await db
+    .from('frames')
+    .select('*')
+    .eq('scene_id', sceneId)
+    .order('metadata->frame_order', { ascending: true });
+
+  if (error) {
+    console.error('❌ Error fetching frames by scene:', error);
+    throw new Error(`Failed to fetch frames by scene: ${error.message}`);
   }
 
   return data || [];

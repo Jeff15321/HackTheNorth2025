@@ -14,6 +14,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
         type: 'object',
         properties: {
           project_id: { type: 'string', format: 'uuid' },
+          scene_id: { type: 'string', format: 'uuid' },
           prompt: { type: 'string' },
           object_type: { type: 'string' },
           environmental_context: { type: 'string' },
@@ -26,7 +27,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { project_id, prompt, object_type, environmental_context } = request.body as any;
+    const { project_id, scene_id, prompt, object_type, environmental_context } = request.body as any;
 
     const jobData = {
       id: crypto.randomUUID(),
@@ -36,6 +37,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
       progress: 0,
       input_data: {
         prompt,
+        scene_id,
         type: 'objects',
         width: 1024,
         height: 1024,
@@ -136,6 +138,92 @@ export async function jobRoutes(fastify: FastifyInstance) {
     };
 
     await addJob('scene-generation', jobData);
+
+    reply.status(201).send({ job_id: jobData.id });
+  });
+
+  fastify.post('/api/jobs/object-analysis', {
+    schema: {
+      ...jobsSchema,
+      summary: 'Analyze a scene to determine required objects',
+      body: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          scene_id: { type: 'string', format: 'uuid' },
+          scene_description: { type: 'string' },
+          context: { type: 'object' }
+        },
+        required: ['project_id', 'scene_id', 'scene_description']
+      },
+      response: {
+        201: { type: 'object', properties: { job_id: { type: 'string' } } }
+      }
+    }
+  }, async (request, reply) => {
+    const { project_id, scene_id, scene_description, context } = request.body as any;
+
+    const jobData = {
+      id: crypto.randomUUID(),
+      project_id,
+      type: 'object-analysis' as const,
+      status: 'pending' as const,
+      progress: 0,
+      input_data: {
+        scene_id,
+        scene_description,
+        context
+      },
+      output_data: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    await addJob('object-analysis', jobData);
+
+    reply.status(201).send({ job_id: jobData.id });
+  });
+
+  fastify.post('/api/jobs/frame-analysis', {
+    schema: {
+      ...jobsSchema,
+      summary: 'Analyze a scene to determine frame breakdown',
+      body: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          scene_id: { type: 'string', format: 'uuid' },
+          scene_description: { type: 'string' },
+          scene_plot: { type: 'string' },
+          context: { type: 'object' }
+        },
+        required: ['project_id', 'scene_id', 'scene_description']
+      },
+      response: {
+        201: { type: 'object', properties: { job_id: { type: 'string' } } }
+      }
+    }
+  }, async (request, reply) => {
+    const { project_id, scene_id, scene_description, scene_plot, context } = request.body as any;
+
+    const jobData = {
+      id: crypto.randomUUID(),
+      project_id,
+      type: 'frame-analysis' as const,
+      status: 'pending' as const,
+      progress: 0,
+      input_data: {
+        scene_id,
+        scene_description,
+        scene_plot,
+        context
+      },
+      output_data: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    await addJob('frame-analysis', jobData);
 
     reply.status(201).send({ job_id: jobData.id });
   });
@@ -310,7 +398,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
 
       console.log('🔍 [API] Getting job status for:', id);
       const status = await getJobStatus(id);
-      console.log('🔍 [API] Raw status from getJobStatus:', JSON.stringify(status, null, 2));
+      // console.log('🔍 [API] Raw status from getJobStatus:', JSON.stringify(status, null, 2));
 
       if (!status) {
         return reply.status(404).send({
@@ -320,7 +408,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
         });
       }
 
-      console.log('🔍 [API] About to send response:', JSON.stringify(status, null, 2));
+      console.log('🔍 [API] About to send response keys:', Object.keys(status));
       reply.send(status);
     } catch (error: any) {
       fastify.log.error('Error fetching job status:', error);
@@ -512,10 +600,9 @@ export async function jobRoutes(fastify: FastifyInstance) {
       }
 
       const imageBuffer = await data.toBuffer();
-      const { saveBlobFile, generateAssetFilename } = await import('../utils/blob.js');
 
-      const filename = generateAssetFilename('images', 'png', 'source');
-      const sourceUrl = await saveBlobFile(projectId, 'images', filename, imageBuffer);
+      const base64Image = imageBuffer.toString('base64');
+      const sourceUrl = `data:image/png;base64,${base64Image}`;
 
       const jobData = {
         id: crypto.randomUUID(),
@@ -575,10 +662,10 @@ export async function jobRoutes(fastify: FastifyInstance) {
       let imageUrl = null;
       if (data && data.file) {
         const imageBuffer = await data.toBuffer();
-        const { saveBlobFile, generateAssetFilename } = await import('../utils/blob.js');
-
-        const filename = generateAssetFilename('images', 'png', 'video_source');
-        imageUrl = await saveBlobFile(projectId, 'images', filename, imageBuffer);
+        
+        // Convert to base64 data URL
+        const base64Image = imageBuffer.toString('base64');
+        imageUrl = `data:image/png;base64,${base64Image}`;
       }
 
       const jobData = {
@@ -642,10 +729,10 @@ export async function jobRoutes(fastify: FastifyInstance) {
       }
 
       const imageBuffer = await data.toBuffer();
-      const { saveBlobFile, generateAssetFilename } = await import('../utils/blob.js');
-
-      const filename = generateAssetFilename('characters', 'png', 'source');
-      const sourceUrl = await saveBlobFile(projectId, 'characters', filename, imageBuffer);
+      
+      // Convert to base64 data URL
+      const base64Image = imageBuffer.toString('base64');
+      const sourceUrl = `data:image/png;base64,${base64Image}`;
 
       const jobData = {
         id: crypto.randomUUID(),
@@ -707,10 +794,10 @@ export async function jobRoutes(fastify: FastifyInstance) {
       }
 
       const imageBuffer = await data.toBuffer();
-      const { saveBlobFile, generateAssetFilename } = await import('../utils/blob.js');
-
-      const filename = generateAssetFilename('objects', 'png', 'source');
-      const sourceUrl = await saveBlobFile(projectId, 'objects', filename, imageBuffer);
+      
+      // Convert to base64 data URL  
+      const base64Image = imageBuffer.toString('base64');
+      const sourceUrl = `data:image/png;base64,${base64Image}`;
 
       const jobData = {
         id: crypto.randomUUID(),

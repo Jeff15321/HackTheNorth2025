@@ -1,6 +1,5 @@
 import { createServer } from './server.js';
 import { initDatabase } from './utils/database.js';
-import { initBlobStore } from './utils/blob.js';
 import { initRedis, createQueues, setupJobEventListeners } from './utils/queue.js';
 import { initFal } from './ai/fal.js';
 import { initAllWorkers } from './workers/index.js';
@@ -13,7 +12,6 @@ async function bootstrap() {
     console.log('🚀 Starting AI Film Studio Backend...\n');
 
     console.log('📦 Initializing core services...');
-    await initBlobStore();
     initDatabase();
     await initRedis();
     createQueues();
@@ -59,7 +57,7 @@ Features:
   • AI-Powered Character/Scene/Video Creation
   • Background Job Processing
   • Director Agent with Streaming
-  • Blob Storage & Media Management
+  • URL-based Media Management
 
 Ready for film production! 🎬
 `);
