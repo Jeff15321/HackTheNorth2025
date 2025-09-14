@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Film Studio - API Test Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #333;
+        }
+        h1, h2 {
+            color: #fff;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #2a2a2a;
+            color: #e0e0e0;
+            box-sizing: border-box;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .response {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Menlo', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            border-color: #28a745;
+            background: #1a2e1a;
+        }
+        .error {
+            border-color: #dc3545;
+            background: #2e1a1a;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-pending { background: #ffc107; color: #000; }
+        .status-processing { background: #007acc; color: #fff; }
+        .status-completed { background: #28a745; color: #fff; }
+        .status-failed { background: #dc3545; color: #fff; }
+        .director-stream {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            padding: 10px;
+            background: #1a1a1a;
+            margin-top: 10px;
+        }
+        .stream-event {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007acc;
+            background: #222;
+        }
+        .job-monitor {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            padding: 10px;
+            background: #1a1a1a;
+            margin-top: 10px;
+        }
+        .job-update {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #28a745;
+            background: #222;
+            font-size: 12px;
+        }
+        .job-update.processing {
+            border-left-color: #ffc107;
+        }
+        .job-update.failed {
+            border-left-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Film Studio - API Test Interface</h1>
+
+    <div class="container">
+        <div class="section">
+            <h2>Project Management</h2>
+
+            <div class="input-group">
+                <label>Project Title:</label>
+                <input type="text" id="projectTitle" value="Test Film Project">
+            </div>
+
+            <div class="input-group">
+                <label>Summary:</label>
+                <textarea id="projectSummary">A test film project for API testing</textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Plot:</label>
+                <textarea id="projectPlot">An epic adventure story about...</textarea>
+            </div>
+
+            <button onclick="createProject()">Create Project</button>
+            <button onclick="getProject()" id="getProjectBtn" disabled>Get Project</button>
+
+            <div id="projectResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h2>Character Generation</h2>
+
+            <div class="input-group">
+                <label>Character Prompt:</label>
+                <textarea id="characterPrompt">A brave knight with golden armor and a noble heart</textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Character Name:</label>
+                <input type="text" id="characterName" value="Sir Galahad">
+            </div>
+
+            <button onclick="generateCharacter()" id="generateCharacterBtn" disabled>Generate Character</button>
+
+            <div id="characterResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h2>Scene Generation</h2>
+
+            <div class="input-group">
+                <label>Scene Description:</label>
+                <textarea id="sceneDescription">A dramatic confrontation in a castle courtyard at sunset</textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Characters Context:</label>
+                <textarea id="charactersContext">Sir Galahad: A brave knight</textarea>
+            </div>
+
+            <button onclick="generateScene()" id="generateSceneBtn" disabled>Generate Scene</button>
+
+            <div id="sceneResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h2>Video Generation</h2>
+
+            <div class="input-group">
+                <label>Video Prompt:</label>
+                <textarea id="videoPrompt">A cinematic shot of a knight walking through a castle</textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Image URL (optional):</label>
+                <input type="text" id="imageUrl" placeholder="/blob/project_id/characters/image.png">
+            </div>
+
+            <div class="input-group">
+                <label>Duration (seconds):</label>
+                <input type="number" id="videoDuration" value="8" min="1" max="8">
+            </div>
+
+            <button onclick="generateVideo()" id="generateVideoBtn" disabled>Generate Video</button>
+
+            <div id="videoResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h2>Script Generation</h2>
+
+            <div class="input-group">
+                <label>Script Type:</label>
+                <select id="scriptType">
+                    <option value="script">Full Script</option>
+                    <option value="character">Character Description</option>
+                    <option value="plot">Plot Outline</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Script Prompt:</label>
+                <textarea id="scriptPrompt">Write a dramatic scene between two characters</textarea>
+            </div>
+
+            <button onclick="generateScript()" id="generateScriptBtn" disabled>Generate Script</button>
+
+            <div id="scriptResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h2>Director Agent</h2>
+
+            <div class="input-group">
+                <label>Page Route:</label>
+                <select id="pageRoute">
+                    <option value="/dashboard">Dashboard</option>
+                    <option value="/characters">Characters</option>
+                    <option value="/scenes">Scenes</option>
+                    <option value="/storyboard">Storyboard</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>User Query:</label>
+                <textarea id="userQuery">How do I create better characters?</textarea>
+            </div>
+
+            <button onclick="askDirector()">Ask Director</button>
+
+            <div id="directorStream" class="director-stream"></div>
+        </div>
+
+        <div class="section">
+            <h2>Job Status</h2>
+
+            <div class="input-group">
+                <label>Job ID:</label>
+                <input type="text" id="jobId" placeholder="Enter job ID to check status">
+            </div>
+
+            <button onclick="checkJobStatus()">Check Status</button>
+            <button onclick="checkAllQueues()">Check All Queues</button>
+            <button onclick="toggleJobMonitor()" id="monitorBtn">Start Real-time Monitor</button>
+            <button onclick="clearRedisCache()" style="background: #dc3545;">Clear Redis Cache</button>
+
+            <div id="statusResponse" class="response"></div>
+
+            <h3>Real-time Job Updates</h3>
+            <div id="jobMonitor" class="job-monitor"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentProjectId = null;
+        let jobMonitorInterval = null;
+        let isMonitoring = false;
+        const API_BASE = '';
+        const monitoredJobs = new Set();
+
+        function displayResponse(elementId, response, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(response, null, 2);
+            element.className = `response ${isError ? 'error' : 'success'}`;
+        }
+
+        async function createProject() {
+            const title = document.getElementById('projectTitle').value;
+            const summary = document.getElementById('projectSummary').value;
+            const plot = document.getElementById('projectPlot').value;
+
+            try {
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, summary, plot })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    currentProjectId = result.id;
+                    enableProjectButtons();
+                    displayResponse('projectResponse', result);
+                } else {
+                    displayResponse('projectResponse', result, true);
+                }
+            } catch (error) {
+                displayResponse('projectResponse', { error: error.message }, true);
+            }
+        }
+
+        async function getProject() {
+            if (!currentProjectId) return;
+
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}`);
+                const result = await response.json();
+                displayResponse('projectResponse', result, !response.ok);
+            } catch (error) {
+                displayResponse('projectResponse', { error: error.message }, true);
+            }
+        }
+
+        function enableProjectButtons() {
+            document.getElementById('getProjectBtn').disabled = false;
+            document.getElementById('generateCharacterBtn').disabled = false;
+            document.getElementById('generateSceneBtn').disabled = false;
+            document.getElementById('generateVideoBtn').disabled = false;
+            document.getElementById('generateScriptBtn').disabled = false;
+        }
+
+        async function generateCharacter() {
+            if (!currentProjectId) return;
+
+            const prompt = document.getElementById('characterPrompt').value;
+            const name = document.getElementById('characterName').value;
+
+            try {
+                const response = await fetch('/api/jobs/character-generation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        prompt,
+                        name
+                    })
+                });
+
+                const result = await response.json();
+                displayResponse('characterResponse', result, !response.ok);
+
+                if (response.ok) {
+                    document.getElementById('jobId').value = result.job_id;
+                    addJobToMonitor(result.job_id);
+                }
+            } catch (error) {
+                displayResponse('characterResponse', { error: error.message }, true);
+            }
+        }
+
+        async function generateScene() {
+            if (!currentProjectId) return;
+
+            const sceneDescription = document.getElementById('sceneDescription').value;
+            const charactersContext = document.getElementById('charactersContext').value;
+
+            try {
+                const response = await fetch('/api/jobs/scene-generation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        scene_description: sceneDescription,
+                        characters_context: charactersContext
+                    })
+                });
+
+                const result = await response.json();
+                displayResponse('sceneResponse', result, !response.ok);
+
+                if (response.ok) {
+                    document.getElementById('jobId').value = result.job_id;
+                    addJobToMonitor(result.job_id);
+                }
+            } catch (error) {
+                displayResponse('sceneResponse', { error: error.message }, true);
+            }
+        }
+
+        async function generateVideo() {
+            if (!currentProjectId) return;
+
+            const prompt = document.getElementById('videoPrompt').value;
+            const imageUrl = document.getElementById('imageUrl').value;
+            const duration = parseInt(document.getElementById('videoDuration').value);
+
+            try {
+                const response = await fetch('/api/jobs/video-generation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        prompt,
+                        image_url: imageUrl || undefined,
+                        duration
+                    })
+                });
+
+                const result = await response.json();
+                displayResponse('videoResponse', result, !response.ok);
+
+                if (response.ok) {
+                    document.getElementById('jobId').value = result.job_id;
+                    addJobToMonitor(result.job_id);
+                }
+            } catch (error) {
+                displayResponse('videoResponse', { error: error.message }, true);
+            }
+        }
+
+        async function generateScript() {
+            if (!currentProjectId) return;
+
+            const type = document.getElementById('scriptType').value;
+            const prompt = document.getElementById('scriptPrompt').value;
+
+            try {
+                const response = await fetch('/api/jobs/script-generation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        type,
+                        prompt
+                    })
+                });
+
+                const result = await response.json();
+                displayResponse('scriptResponse', result, !response.ok);
+
+                if (response.ok) {
+                    document.getElementById('jobId').value = result.job_id;
+                    addJobToMonitor(result.job_id);
+                }
+            } catch (error) {
+                displayResponse('scriptResponse', { error: error.message }, true);
+            }
+        }
+
+        async function askDirector() {
+            const pageRoute = document.getElementById('pageRoute').value;
+            const userQuery = document.getElementById('userQuery').value;
+
+            const streamContainer = document.getElementById('directorStream');
+            streamContainer.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/director/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        page_route: pageRoute,
+                        user_query: userQuery,
+                        context: { project_id: currentProjectId }
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                const eventDiv = document.createElement('div');
+                                eventDiv.className = 'stream-event';
+                                eventDiv.textContent = JSON.stringify(data, null, 2);
+                                streamContainer.appendChild(eventDiv);
+                                streamContainer.scrollTop = streamContainer.scrollHeight;
+                            } catch (e) {}
+                        }
+                    }
+                }
+            } catch (error) {
+                streamContainer.innerHTML = `<div class="stream-event" style="color: red;">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function checkJobStatus() {
+            const jobId = document.getElementById('jobId').value;
+            if (!jobId) return;
+
+            try {
+                const response = await fetch(`/api/jobs/${jobId}/status`);
+                const result = await response.json();
+                displayResponse('statusResponse', result, !response.ok);
+            } catch (error) {
+                displayResponse('statusResponse', { error: error.message }, true);
+            }
+        }
+
+        async function checkAllQueues() {
+            try {
+                const response = await fetch('/api/queues/status');
+                const result = await response.json();
+                displayResponse('statusResponse', result, !response.ok);
+            } catch (error) {
+                displayResponse('statusResponse', { error: error.message }, true);
+            }
+        }
+
+        function addJobToMonitor(jobId) {
+            if (!monitoredJobs.has(jobId)) {
+                monitoredJobs.add(jobId);
+                addJobUpdate(jobId, 'Job added to monitor', 'pending');
+            }
+        }
+
+        function addJobUpdate(jobId, message, status = 'completed') {
+            const monitor = document.getElementById('jobMonitor');
+            const update = document.createElement('div');
+            update.className = `job-update ${status}`;
+            update.innerHTML = `
+                <strong>${new Date().toLocaleTimeString()}</strong> -
+                <strong>${jobId.substring(0, 8)}</strong>: ${message}
+            `;
+            monitor.appendChild(update);
+            monitor.scrollTop = monitor.scrollHeight;
+
+            while (monitor.children.length > 50) {
+                monitor.removeChild(monitor.firstChild);
+            }
+        }
+
+        async function monitorJob(jobId) {
+            try {
+                const response = await fetch(`/api/jobs/${jobId}/status`);
+                if (response.ok) {
+                    const status = await response.json();
+                    const message = `${status.status} (${status.progress}%)${status.output_data ? ' - Has output data' : ''}`;
+                    addJobUpdate(jobId, message, status.status);
+
+                    if (status.status === 'completed' || status.status === 'failed') {
+                        monitoredJobs.delete(jobId);
+                    }
+                }
+            } catch (error) {
+                // Job might not exist yet, ignore error
+            }
+        }
+
+        async function monitorAllJobs() {
+            for (const jobId of monitoredJobs) {
+                await monitorJob(jobId);
+            }
+        }
+
+        function toggleJobMonitor() {
+            const btn = document.getElementById('monitorBtn');
+
+            if (isMonitoring) {
+                clearInterval(jobMonitorInterval);
+                jobMonitorInterval = null;
+                isMonitoring = false;
+                btn.textContent = 'Start Real-time Monitor';
+                addJobUpdate('system', 'Job monitoring stopped', 'failed');
+            } else {
+                jobMonitorInterval = setInterval(monitorAllJobs, 2000);
+                isMonitoring = true;
+                btn.textContent = 'Stop Real-time Monitor';
+                addJobUpdate('system', 'Job monitoring started', 'processing');
+            }
+        }
+
+        async function clearRedisCache() {
+            if (!confirm('Are you sure you want to clear the entire Redis cache? This will remove all job statuses and queue data.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/redis/clear', {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+                displayResponse('statusResponse', result, !response.ok);
+
+                if (response.ok) {
+                    addJobUpdate('system', 'Redis cache cleared successfully', 'completed');
+                    monitoredJobs.clear();
+                }
+            } catch (error) {
+                displayResponse('statusResponse', { error: error.message }, true);
+                addJobUpdate('system', `Error clearing cache: ${error.message}`, 'failed');
+            }
+        }
+    </script>
+</body>
+</html>
