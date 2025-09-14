@@ -37,14 +37,14 @@ export default function ClapboardLoading3D() {
   // Smaller scale (~5x smaller) and closer spacing
   const s = 0.18;
   const z = -5.0;
-  const y = -1.7; // sit near the bottom edge of the viewport
+  const y = -0.3; // sit near the bottom edge of the viewport
   const dx = 0.4; // closer together
   return (
     <div className="w-full h-screen relative bottom-[40vh]">
       <Scene3D>
-        <JumpingGLB path="/glb/character1.glb" position={[-dx, y, z]} phase={0} scale={s} amplitude={0.8} />
-        <JumpingGLB path="/glb/character2.glb" position={[0, y, z]} phase={0.6} scale={s} amplitude={0.8} />
-        <JumpingGLB path="/glb/character3.glb" position={[dx, y, z]} phase={1.2} scale={s} amplitude={0.8} />
+        <JumpingGLB path="/glb/character1.glb" position={[-dx, y, z]} phase={0} scale={s} amplitude={0.4} />
+        <JumpingGLB path="/glb/character2.glb" position={[0, y, z]} phase={0.6} scale={s} amplitude={0.4} />
+        <JumpingGLB path="/glb/character3.glb" position={[dx, y, z]} phase={1.2} scale={s} amplitude={0.4} />
       </Scene3D>
 
       <div className="absolute inset-x-0 bottom-3 text-center">

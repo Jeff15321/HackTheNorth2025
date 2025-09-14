@@ -4,12 +4,13 @@ import { cn } from "@/lib/utils";
 export interface DuoTextAreaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
+  containerClassName?: string;
 }
 
 export const DuoTextArea = React.forwardRef<HTMLTextAreaElement, DuoTextAreaProps>(
-  ({ className, label, ...props }, ref) => {
+  ({ className, containerClassName, label, ...props }, ref) => {
     return (
-      <label className="flex w-full flex-col gap-2">
+      <label className={cn("flex w-full flex-col gap-2", containerClassName)}>
         {label && (
           <span className="font-feather text-[20px] text-white/95">{label}</span>
         )}

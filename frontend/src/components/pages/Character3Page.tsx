@@ -1,20 +1,16 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
-import { themeCharacter1, colors } from "@/styles/colors";
 import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
 import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData, setEntryLoading, initializeAllLoadingFalse, GalleryCategory } from "@/data/characterData";
 import { sendImageWithScribbles } from "@/lib/imageAgent";
 import LoadingClapBoard from "../common/ClapboardLoading3D";
 import { useBackendStore } from "@/store/backendStore";
+import { DuoButton, DuoTextArea } from "@/components/duolingo";
 
 export default function Character3Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
-
-  const textColor = themeCharacter1.text;
-  const borderColor = themeCharacter1.border;
-  const backgroundColor = themeCharacter1.background;
 
   const [activeTab, setActiveTab] = useState<GalleryCategory>("characters");
   const entries = characterGallaryData[activeTab];
@@ -68,11 +64,8 @@ export default function Character3Page() {
     setEntryLoading(activeTab, index, true);
     try {
       const resp = await sendImageWithScribbles(payload);
-      // Mark completed on first successful response
       useSceneStore.getState().setCompleted("character_3", true);
-      // Replace current entry with returned values
       updateCharacterGalleryData(activeTab, index, resp.file_path, resp.description);
-      // Clear scribbles for new image path
       setScribblesByIndex((prev) => ({ ...prev, [index]: [] }));
       setScribblesForImage(resp.file_path, []);
       setVersion((v) => v + 1);
@@ -83,7 +76,6 @@ export default function Character3Page() {
   }
 
   // Load persisted scribbles for the current image when index changes
-  // and seed into state for the editor.
   const imageForIndex = (i: number) => entries[i]?.image;
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const imgSrc = imageForIndex(index);
@@ -96,170 +88,97 @@ export default function Character3Page() {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        height: "100vh",
-        width: "80%",
-        background: backgroundColor,
-        borderLeft: "1px solid rgba(0,0,0,0.08)",
-        boxShadow: `-8px 0 24px ${colors.shadow}`,
-        padding: 16,
-        zIndex: 10,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        color: textColor,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", gap: 8 }}>
+    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[70%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
+      <div className="flex h-full w-full flex-col gap-4 px-6 py-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="font-feather text-[24px] text-white/95">Visual Designer</h2>
+            <span className="text-white/40">{hasEntries ? `${index + 1}/${entries.length}` : "0/0"}</span>
+          </div>
+          <DuoButton variant="secondary" size="md" onClick={reset}>Close</DuoButton>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2">
           {(["characters", "objects", "scenes"] as GalleryCategory[]).map((tab) => {
             const selected = activeTab === tab;
             return (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setIndex(0); }}
-                style={{
-                  border: `1px solid ${selected ? borderColor : colors.borderLight}`,
-                  padding: "6px 10px",
-                  borderRadius: 16,
-                  background: selected ? colors.white : "transparent",
-                  color: selected ? borderColor : textColor,
-                  cursor: "pointer",
-                  textTransform: "capitalize",
-                }}
+                className={[
+                  "font-feather rounded-full px-4 py-2 border transition text-[14px] capitalize",
+                  selected ? "border-[#2aa3ff] text-[#69c0ff]" : "border-white/12 text-white/80 hover:border-white/22 hover:text-white/90",
+                  "bg-white/5"
+                ].join(" ")}
               >
                 {tab}
               </button>
             );
           })}
         </div>
-        <button
-          style={{ border: `1px solid ${colors.borderLight}`, padding: "6px 10px", borderRadius: 6, background: colors.white }}
-          onClick={reset}
-        >
-          Close
-        </button>
-      </div>
 
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          gap: 12,
-          minHeight: 0,
-        }}
-      >
-        {/* Left column: vertical image scroller with arrows */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "stretch",
-            border: `1px solid ${colors.borderLight}`,
-            borderRadius: 6,
-            background: colors.white,
-            overflow: "auto",
-          }}
-        >
-          <button
-            onClick={goPrev}
-            aria-label="Previous image"
-            style={{
-              border: "none",
-              background: "transparent",
-              padding: 8,
-              cursor: "pointer",
-              color: borderColor,
-              borderBottom: `1px solid ${colors.cardBorder}`,
-            }}
-          >
-            ▲
-          </button>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-            {!hasEntries ? (
-              <div style={{ opacity: 0.7 }}>No images available.</div>
-            ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
-              <LoadingClapBoard />
-            ) : (
-              <ScribbleEditor
-                src={current!.image}
-                width={420}
-                lines={scribblesByIndex[index]}
-                onChangeLines={(l) => {
-                  setScribblesByIndex((prev) => ({ ...prev, [index]: l }));
-                  if (current?.image) setScribblesForImage(current.image, l);
+        {/* Content: two columns */}
+        <div className="flex min-h-0 flex-1 gap-4">
+          {/* Left column: canvas & navigation */}
+          <div className="flex flex-1 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-white/5">
+            <div className="flex items-center justify-between border-b border-white/10 p-2">
+              <button onClick={goPrev} aria-label="Previous" className="rounded-[10px] border border-white/12 bg-white/5 px-3 py-1 text-white/80 hover:border-white/22">▲</button>
+              <button onClick={goNext} aria-label="Next" className="rounded-[10px] border border-white/12 bg-white/5 px-3 py-1 text-white/80 hover:border-white/22">▼</button>
+            </div>
+            <div className="flex flex-1 items-center justify-center p-3">
+              {!hasEntries ? (
+                <div className="text-white/60">No images available.</div>
+              ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+                <LoadingClapBoard />
+              ) : (
+                <ScribbleEditor
+                  src={current!.image}
+                  width={420}
+                  lines={scribblesByIndex[index]}
+                  onChangeLines={(l) => {
+                    setScribblesByIndex((prev) => ({ ...prev, [index]: l }));
+                    if (current?.image) setScribblesForImage(current.image, l);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Right column: description & prompt */}
+          <div className="flex flex-1 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-white/5 p-4 text-white/95">
+            <div className="mb-3 text-white/80">Description</div>
+            <div className="flex-1 overflow-auto rounded-[12px] border border-white/8 bg-white/[0.03] p-3">
+              {!hasEntries ? (
+                <div className="text-white/60">No description available.</div>
+              ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
+                <LoadingClapBoard />
+              ) : (
+                <p className="whitespace-pre-wrap leading-relaxed">{current!.description}</p>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <DuoTextArea
+                label="Describe changes"
+                placeholder="e.g. Make the lighting moodier, add rain, change outfit to red…"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmitCurrent();
+                  }
                 }}
+                className="min-h-24"
               />
-            )}
-          </div>
-          <button
-            onClick={goNext}
-            aria-label="Next image"
-            style={{
-              border: "none",
-              background: "transparent",
-              padding: 8,
-              cursor: "pointer",
-              color: borderColor,
-              borderTop: `1px solid ${colors.cardBorder}`,
-            }}
-          >
-            ▼
-          </button>
-        </div>
-
-        {/* Right column: description for current image */}
-        <div
-          style={{
-            flex: 1,
-            border: `1px solid ${colors.borderLight}`,
-            borderRadius: 6,
-            background: colors.white,
-            color: borderColor,
-            padding: "12px 14px",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontWeight: 600 }}>{index + 1}/{entries.length}</div>
-          </div>
-          <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {!hasEntries ? (
-              <div style={{ opacity: 0.7 }}>No description available.</div>
-            ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
-              <LoadingClapBoard />
-            ) : (
-              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{current!.description}</p>
-            )}
-          </div>
-          <div style={{ borderTop: `1px solid ${colors.cardBorder}`, paddingTop: 8, marginTop: 8, display: "flex", minHeight: 0, flex: 1 }}>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmitCurrent();
-                }
-              }}
-              placeholder="Describe changes (Enter to submit, Shift+Enter for newline)"
-              style={{
-                width: "100%",
-                border: `1px solid ${colors.borderLight}`,
-                borderRadius: 6,
-                padding: "6px 10px",
-                outline: "none",
-                resize: "none",
-                height: "100%",
-              }}
-            />
+              <div className="mt-3 flex items-center justify-end">
+                <DuoButton size="md" onClick={handleSubmitCurrent} disabled={isProcessing || !input.trim()}>
+                  Apply changes
+                </DuoButton>
+              </div>
+            </div>
           </div>
         </div>
       </div>
