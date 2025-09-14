@@ -50,7 +50,7 @@ export default function Character4Page() {
     try { useSceneStore.getState().setCompleted("character_4", true); } catch {}
   }
 
-  const containerClass = "fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]";
+  const containerClass = "fixed inset-y-0 right-0 z-10 flex min-h-screen w-[70%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]";
 
   return (
     <div className={containerClass}>
