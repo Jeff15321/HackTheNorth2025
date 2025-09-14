@@ -20,6 +20,7 @@ export const songCategories: SongCategory[] = [
       { id: "sf-1", file: "/songs/song1.mp3", title: "Careless Whisper", author: "A. Nova", duration: "02:14" },
       { id: "sf-2", file: "/songs/avengerepicsounds.mp3", title: "Avenger Epic Sounds", author: "R. Pulse", duration: "03:01" },
       { id: "sf-3", file: "/songs/slowtrap.mp3", title: "Slow Track Sounds", author: "R. Pulse", duration: "03:01" },
+      { id: "sf-4", file: "/songs/softbeat.mp3", title: "Soft Beats", author: "R. Pulse", duration: "02:01" },
 
     ],
   },
