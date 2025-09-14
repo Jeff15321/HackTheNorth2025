@@ -663,11 +663,29 @@ async function triggerFrameGeneration(projectId: string, sceneId: string, sceneD
 }
 
 async function triggerVideoGeneration(projectId: string, frameId: string, frameData: any) {
-  const ENABLE_VIDEO_GENERATION = false;
+  const ENABLE_VIDEO_GENERATION = true; // Enable video generation
 
   if (!ENABLE_VIDEO_GENERATION) {
     console.log(`🎬 [VIDEO GENERATION] Skipped video generation for frame ${frameId} (disabled by flag)`);
     return;
+  }
+
+  // Get the frame's image URL from database to use as source
+  let frameImageUrl = null;
+  try {
+    const { getDatabase } = await import('../utils/database.js');
+    const db = getDatabase();
+
+    const { data: frame } = await db
+      .from('frames')
+      .select('media_url')
+      .eq('id', frameId)
+      .single();
+
+    frameImageUrl = frame?.media_url;
+    console.log(`🎬 [VIDEO GENERATION] Using frame image URL: ${frameImageUrl}`);
+  } catch (error) {
+    console.error(`🎬 [VIDEO GENERATION] Failed to get frame image URL:`, error);
   }
 
   const videoJob = {
@@ -677,8 +695,8 @@ async function triggerVideoGeneration(projectId: string, frameId: string, frameD
     status: 'pending' as const,
     progress: 0,
     input_data: {
-      frame_id: frameId,
       prompt: frameData.veo3_prompt,
+      image_url: frameImageUrl, // Use frame's image as source
       duration: 8, // Veo 3 always generates 8-second videos
       type: 'frame_video',
       metadata: { frame_id: frameId }
@@ -689,5 +707,5 @@ async function triggerVideoGeneration(projectId: string, frameId: string, frameD
   };
 
   await addJob('video-generation', videoJob);
-  console.log(`➕ Triggered video generation for frame ${frameId}`);
+  console.log(`➕ Triggered video generation for frame ${frameId} with image ${frameImageUrl}`);
 }

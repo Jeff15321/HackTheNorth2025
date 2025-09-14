@@ -6,6 +6,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+nextjs-portal {
+  display: none !important;
+}
+
+.nextjs-toast {
+  display: none !important;
+}
+
+
 :root {
   --feather-font: "Feather Bold", system-ui, -apple-system, Segoe UI, Roboto, Arial,
     sans-serif;

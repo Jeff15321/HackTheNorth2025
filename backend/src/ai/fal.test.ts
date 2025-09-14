@@ -13,8 +13,6 @@ const {
   uploadFile
 } = await import('./fal.ts');
 
-const TEST_PROJECT_ID = `test-fal-${uuidv4()}`;
-
 beforeAll(async () => {
   try {
     initFal();

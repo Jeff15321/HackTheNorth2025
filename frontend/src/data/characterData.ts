@@ -145,6 +145,7 @@ export async function generateAllScenes(): Promise<string[]> {
 
   // Frame structure: Scene 1 (3 frames), Scene 2 (2 frames), Scene 3 (3 frames)
   const frameStructure = [3, 2, 3];
+  // const frameStructure = [1, 0, 0]; // for testing
 
   for (let sceneIndex = 0; sceneIndex < 3; sceneIndex++) {
     const sceneOrder = sceneIndex + 1;
@@ -246,32 +247,8 @@ export function setCurrentCharacterGallaryIndex(index: number): void {
 export type GalleryCategory = "characters" | "scenes";
 
 export let characterGallaryData: Record<GalleryCategory, characterGallaryDataEntry[]> = {
-  // Use assets under /public. Paths are absolute from the web root
-  characters: [
-    {
-      image: "/images/cat1.jpg",
-      description: "A mischievous alley cat with bright eyes and plenty of attitude.",
-      loading: false,
-    },
-    {
-      image: "/images/images.jpg",
-      description: "Portrait of a curious character, ready for a new adventure.",
-      loading: false,
-    },
-  ],
-
-  scenes: [
-    {
-      image: "/background/background3.png",
-      description: "A rehearsal room with acoustic foam panels and studio vibes.",
-      loading: false,
-    },
-    {
-      image: "/background/map.png",
-      description: "Map board for planning chase sequences across the city.",
-      loading: false,
-    },
-  ],
+  characters: [],
+  scenes: [],
 };
 
 export type characterGallaryDataEntry = {

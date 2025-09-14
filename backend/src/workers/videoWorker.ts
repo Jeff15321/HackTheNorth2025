@@ -46,6 +46,30 @@ async function processVideoGeneration(job: Job) {
 
     await updateJobStatus(job.id!, 'processing', 90);
 
+    // Update the frame in database with video_url if frame_id is provided
+    if (metadata?.frame_id) {
+      try {
+        const { getDatabase } = await import('../utils/database.js');
+        const db = getDatabase();
+
+        const { error: updateError } = await db
+          .from('frames')
+          .update({
+            video_url: videoUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', metadata.frame_id);
+
+        if (updateError) {
+          console.error(`🎬 [VIDEO GENERATION] Failed to update frame ${metadata.frame_id} with video URL:`, updateError);
+        } else {
+          console.log(`🎬 [VIDEO GENERATION] Updated frame ${metadata.frame_id} with video URL`);
+        }
+      } catch (dbError) {
+        console.error(`🎬 [VIDEO GENERATION] Database error updating frame:`, dbError);
+      }
+    }
+
     const result = {
       type: 'video',
       video_url: videoUrl,
@@ -56,7 +80,7 @@ async function processVideoGeneration(job: Job) {
       generated_at: new Date().toISOString()
     };
 
-    console.log(`🎬 [VIDEO GENERATION] Video generated successfully`);
+    console.log(`🎬 [VIDEO GENERATION] Video generated successfully: ${videoUrl}`);
     return result;
   } catch (error) {
     console.error(`❌ Video generation failed for job ${job.id}:`, error);

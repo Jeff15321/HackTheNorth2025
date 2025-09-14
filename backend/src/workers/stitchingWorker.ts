@@ -62,12 +62,38 @@ async function processVideoStitching(job: Job) {
 
     await updateJobStatus(job.id!, 'processing', 80);
 
-    // Read the final video and convert to base64 data URL
+    // Upload the final video to Supabase storage
     const finalVideoBuffer = await readFile(outputPath);
     const base64Video = finalVideoBuffer.toString('base64');
-    const finalVideoUrl = `data:video/mp4;base64,${base64Video}`;
+    const dataUrl = `data:video/mp4;base64,${base64Video}`;
 
-    await updateJobStatus(job.id!, 'processing', 90);
+    const { uploadBase64Image, generateFileName, StorageConfigs } = await import('../utils/storage.js');
+    const fileName = generateFileName('final_video.mp4', `final_${Date.now()}`);
+    const uploadResult = await uploadBase64Image(dataUrl, fileName, StorageConfigs.frame);
+
+    await updateJobStatus(job.id!, 'processing', 95);
+
+    // Also store the final video URL in the project table for easy access
+    try {
+      const { getDatabase } = await import('../utils/database.js');
+      const db = getDatabase();
+
+      const { error: updateError } = await db
+        .from('projects')
+        .update({
+          final_video_url: uploadResult.url,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', project_id);
+
+      if (updateError) {
+        console.error(`🎞️  [VIDEO STITCHING] Failed to update project ${project_id} with final video URL:`, updateError);
+      } else {
+        console.log(`🎞️  [VIDEO STITCHING] Updated project ${project_id} with final video URL`);
+      }
+    } catch (dbError) {
+      console.error(`🎞️  [VIDEO STITCHING] Database error updating project:`, dbError);
+    }
 
     // Clean up temporary files
     for (const tempFile of tempFiles) {
@@ -80,7 +106,7 @@ async function processVideoStitching(job: Job) {
 
     const result = {
       type: 'final_video',
-      video_url: finalVideoUrl,
+      video_url: uploadResult.url, // Use the Supabase storage URL
       filename: outputFilename,
       input_videos: video_urls,
       video_count: video_urls.length,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useSceneStore } from "@/store/useSceneStore";
 import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
 import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData, setEntryLoading, initializeAllLoadingFalse, GalleryCategory } from "@/data/characterData";
@@ -11,6 +12,7 @@ import { useProject, useProjectData, useImageEditing } from "@/hooks/useBackendI
 import type { BackendCharacter, BackendScene } from "@/data/characterData";
 
 export default function Character3Page() {
+  const router = useRouter();
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
   const project = useProject();
   const projectData = useProjectData();
@@ -20,6 +22,7 @@ export default function Character3Page() {
   const [backendCharacters, setBackendCharacters] = useState<BackendCharacter[]>([]);
   const [backendScenes, setBackendScenes] = useState<BackendScene[]>([]);
   const [isGeneratingScenes, setIsGeneratingScenes] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [imagesLoadingStatus, setImagesLoadingStatus] = useState<Record<string, boolean>>({});
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastDataRef = useRef({ characters: 0, scenes: 0 });
@@ -37,7 +40,7 @@ export default function Character3Page() {
       })) :
       backendScenes.map(scene => ({
         image: scene.media_url || "/images/placeholder.jpg",
-        description: `Scene ${scene.metadata?.scene_order || 'Unknown'}\nConcise Plot: ${scene.metadata?.concise_plot || 'No plot'}\nDetailed Plot: ${scene.metadata?.detailed_plot || 'No detailed plot'}\nDialogue: ${scene.metadata?.dialogue || 'No dialogue'}`,
+        description: `Concise Plot: ${scene.metadata?.concise_plot || 'No plot'}\nDetailed Plot: ${scene.metadata?.detailed_plot || 'No detailed plot'}\nDialogue: ${scene.metadata?.dialogue || 'No dialogue'}`,
         loading: imagesLoadingStatus[scene.media_url || ''] ?? true,
         id: scene.id
       }))
@@ -226,10 +229,10 @@ export default function Character3Page() {
       setIsGeneratingScenes(true);
 
       // Check if script has been enhanced
-      if (!project.currentProject.plot || project.currentProject.plot.trim() === '') {
-        alert('Please enhance the script first to generate scenes. Go to the Script Enhancement tab.');
-        return;
-      }
+      // if (!project.currentProject.plot || project.currentProject.plot.trim() === '') {
+      //   alert('Please enhance the script first to generate scenes. Go to the Script Enhancement tab.');
+      //   return;
+      // }
 
       const result = await projectData.generateScenes();
 
@@ -246,6 +249,32 @@ export default function Character3Page() {
       alert('Error generating scenes: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsGeneratingScenes(false);
+    }
+  }
+
+  const handleGenerateVideo = async () => {
+    if (!project?.currentProject || isGeneratingVideo) return;
+
+    try {
+      setIsGeneratingVideo(true);
+
+      const result = await projectData.generateVideo();
+
+      if (result.success) {
+        console.log('Video generation started:', result.message);
+        // Navigate to timeline page using Next.js router
+        reset(); // Close the current page
+        router.push('/timeline'); // Redirect to timeline page
+        console.log('Redirecting to /timeline page to monitor video progress');
+      } else {
+        alert('Error generating video: ' + result.message);
+      }
+
+    } catch (error) {
+      console.error('Error generating video:', error);
+      alert('Error generating video: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsGeneratingVideo(false);
     }
   }
 
@@ -430,13 +459,25 @@ export default function Character3Page() {
                 className="min-h-24"
               />
               <div className="mt-3 flex justify-end gap-2">
-                <DuoButton
-                  size="md"
-                  className="bg-[#8b5cf6] text-white shadow-[0_6px_0_#6e46d9] hover:brightness-105"
-                  onClick={handleGenerateScenes}
-                >
-                  {isGeneratingScenes ? 'Generating...' : 'Generate Scenes'}
-                </DuoButton>
+                {activeTab === "characters" ? (
+                  <DuoButton
+                    size="md"
+                    className="bg-[#8b5cf6] text-white shadow-[0_6px_0_#6e46d9] hover:brightness-105"
+                    onClick={handleGenerateScenes}
+                    disabled={isGeneratingScenes}
+                  >
+                    {isGeneratingScenes ? 'Generating...' : 'Generate Scenes'}
+                  </DuoButton>
+                ) : (
+                  <DuoButton
+                    size="md"
+                    className="bg-[#f59e0b] text-white shadow-[0_6px_0_#d97706] hover:brightness-105"
+                    onClick={handleGenerateVideo}
+                    disabled={isGeneratingVideo || backendScenes.length === 0}
+                  >
+                    {isGeneratingVideo ? 'Generating...' : 'Generate Video'}
+                  </DuoButton>
+                )}
                 <DuoButton size="md" onClick={handleSubmitCurrent} disabled={isProcessing || !input.trim()}>
                   Apply changes
                 </DuoButton>

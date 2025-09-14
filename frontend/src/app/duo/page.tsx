@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { DuoButton, DuoEditOverlay } from "@/components/duolingo";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 
 type SceneCard = {
   id: string;

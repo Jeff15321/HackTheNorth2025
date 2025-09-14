@@ -4,13 +4,29 @@ import { useState, useEffect } from "react";
 import { DuoButton, DuoTextArea } from "@/components/duolingo";
 import { useSceneStore } from "@/store/useSceneStore";
 import { useDirector, useProject } from "@/hooks/useBackendIntegration";
-import { getCurrentProject } from "@/data/projectData";
+import { getCurrentProject, updateCurrentProject } from "@/data/projectData";
+import LoadingClapBoard from "@/components/common/ClapboardLoading3D";
 
 type DirectorResult = {
   response: string;
   scene_descriptions: string[];
   characters: string[];
 };
+
+// Utility function to parse character references like <|character_id|>
+function parseCharacterReferences(text: string) {
+  return text.split(/(<\|[^|]+\|>)/).map((part, index) => {
+    const match = part.match(/^<\|([^|]+)\|>$/);
+    if (match) {
+      return (
+        <span key={index} className="underline decoration-dotted decoration-blue-400 text-blue-400 font-medium">
+          {match[1]}
+        </span>
+      );
+    }
+    return part;
+  });
+}
 
 export default function Character4Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
@@ -40,7 +56,7 @@ export default function Character4Page() {
     initializeProject();
   }, [project.createProject]);
 
-  // Update result when director conversation changes
+  // Update result when director conversation changes and save plot to project
   useEffect(() => {
     if (director.messages.length > 0) {
       const lastMessage = director.messages[director.messages.length - 1];
@@ -58,9 +74,36 @@ export default function Character4Page() {
           scene_descriptions: plotPoints,
           characters: characterList
         });
+
+        // Save plot to project when conversation status updates
+        if (director.status.plot.length > 0 && project.currentProject) {
+          const savePlotToProject = async () => {
+            try {
+              const plotSummary = director.status.plot.join('\n\n');
+              const characterSummary = director.status.characters.length > 0
+                ? director.status.characters.map(char => `${char.name} (${char.role}): ${char.description}`).join('\n')
+                : '';
+
+              const fullPlot = characterSummary
+                ? `Plot:\n${plotSummary}\n\nCharacters:\n${characterSummary}`
+                : plotSummary;
+
+              await updateCurrentProject({
+                plot: fullPlot,
+                summary: director.status.plot[0] || 'Film project in development'
+              });
+
+              console.log('✓ Auto-saved plot to project from conversation status');
+            } catch (error) {
+              console.error('Failed to auto-save plot to project:', error);
+            }
+          };
+
+          savePlotToProject();
+        }
       }
     }
-  }, [director.messages, director.status]);
+  }, [director.messages, director.status, project.currentProject]);
 
   async function handleSend() {
     const prompt = input.trim();
@@ -85,6 +128,29 @@ export default function Character4Page() {
         scene_descriptions: plotPoints,
         characters: characterList
       });
+
+      // Save plot to project if we have plot points
+      if (response.plot_points.length > 0 && project.currentProject) {
+        try {
+          const plotSummary = response.plot_points.join('\n\n');
+          const characterSummary = response.characters.length > 0
+            ? response.characters.map(char => `${char.name} (${char.role}): ${char.description}`).join('\n')
+            : '';
+
+          const fullPlot = characterSummary
+            ? `Plot:\n${plotSummary}\n\nCharacters:\n${characterSummary}`
+            : plotSummary;
+
+          await updateCurrentProject({
+            plot: fullPlot,
+            summary: response.plot_points[0] || 'Film project in development'
+          });
+
+          console.log('✓ Saved plot to project:', { plotLength: fullPlot.length, characters: response.characters.length });
+        } catch (error) {
+          console.error('Failed to save plot to project:', error);
+        }
+      }
 
       // Mark as completed if the conversation is complete
       if (response.is_complete) {
@@ -114,7 +180,7 @@ export default function Character4Page() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-feather text-[24px] text-white/95">Director</h2>
+            <h2 className="font-feather text-[24px] text-white/95">AI Director</h2>
             {project?.currentProject && (
               <div className="text-sm text-white/60 mt-1">
                 Project: {project.currentProject.id.substring(0, 8)}...
@@ -129,28 +195,46 @@ export default function Character4Page() {
           <div className="grid h-full grid-cols-12 gap-3">
             {/* Left: Response (50%) */}
             <div className="col-span-6 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.03] p-3 text-white/95">
-              <div className="mb-2 text-white/80">Response</div>
+              <div className="mb-2 text-white/80 font-feather">Response</div>
               <div className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap leading-relaxed">
-                {director.isLoading ? "Thinking…" : result?.response}
+                {director.isLoading ? (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="w-16 h-16 mb-4">
+                      <LoadingClapBoard />
+                    </div>
+                    <div className="text-white/60 text-sm animate-pulse font-feather">
+                      AI director is thinking...
+                    </div>
+                    <div className="flex items-center gap-1 mt-2">
+                      <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                      <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                      <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
+                    </div>
+                  </div>
+                ) : result?.response ? parseCharacterReferences(result.response) : null}
               </div>
             </div>
 
             {/* Middle: Scenes (25%) */}
             <div className="col-span-3 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.03] p-3 text-white/95">
-              <div className="mb-2 text-white/80">Scenes</div>
+              <div className="mb-2 text-white/80 font-feather">Scenes</div>
               <ul className="min-h-0 flex-1 overflow-auto space-y-2">
                 {(result?.scene_descriptions || []).map((s, idx) => (
-                  <li key={idx} className="rounded-[12px] border border-white/10 bg-white/5 p-2 text-[14px] leading-relaxed">{s}</li>
+                  <li key={idx} className="rounded-[12px] border border-white/10 bg-white/5 p-2 text-[14px] leading-relaxed">
+                    {parseCharacterReferences(s)}
+                  </li>
                 ))}
               </ul>
             </div>
 
             {/* Right: Characters (25%) */}
             <div className="col-span-3 flex min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.03] p-3 text-white/95">
-              <div className="mb-2 text-white/80">Characters</div>
+              <div className="mb-2 text-white/80 font-feather">Characters</div>
               <ul className="min-h-0 flex-1 overflow-auto space-y-2">
                 {(result?.characters || []).map((c, idx) => (
-                  <li key={idx} className="rounded-[12px] border border-white/10 bg-white/5 p-2 text-[14px] leading-relaxed">{c}</li>
+                  <li key={idx} className="rounded-[12px] border border-white/10 bg-white/5 p-2 text-[14px] leading-relaxed">
+                    {parseCharacterReferences(c)}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -172,9 +256,9 @@ export default function Character4Page() {
                     handleSend();
                   }
                 }}
-                rows={2}
+                rows={3}
                 containerClassName="flex-1"
-                className="h-[72px] min-h-[72px] max-h-[72px] resize-none overflow-auto"
+                className="min-h-[80px] max-h-[120px] resize-y overflow-auto"
               />
               <DuoButton size="md" onClick={handleSend} disabled={!input.trim() || director.isLoading}>
                 {director.isLoading ? 'Sending...' : 'Submit'}

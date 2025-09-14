@@ -1,9 +1,9 @@
 import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
+import { fal } from '@fal-ai/client';
 
 const IMAGE_MODEL = 'gemini-2.5-flash-image-preview';
+const IMAGE_MODEL_FALLBACK = 'gemini-2.0-flash-preview-image-generation';
 const TEXT_MODEL = 'gemini-2.0-flash';
-// const IMAGE_MODEL = 'gemini-2.0-flash-preview-image-generation';
-// const TEXT_MODEL = 'gemini-2.0-flash';
 
 const PROMPTS = {
   IMAGE_GENERATION: 'Generate a high-quality, detailed image based on this description: {prompt}',
@@ -18,25 +18,110 @@ const PROMPTS = {
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) throw new Error('GEMINI_API_KEY environment variable required');
 
+const falKey = process.env.FAL_KEY;
+if (!falKey) throw new Error('FAL_KEY environment variable required');
+
 const gemini = new GoogleGenerativeAI(apiKey.trim());
 
-export async function generateImage(prompt: string, options?: { width?: number; height?: number; inputImage?: Buffer }): Promise<Buffer> {
-  const model = gemini.getGenerativeModel({ model: IMAGE_MODEL });
-  const imagePrompt = options?.inputImage
-    ? PROMPTS.IMAGE_EDITING.replace('{prompt}', prompt)
-    : PROMPTS.IMAGE_GENERATION.replace('{prompt}', prompt);
+// Configure fal.ai client
+fal.config({
+  credentials: falKey.trim()
+});
 
-  const parts: any[] = [{ text: imagePrompt }];
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
 
-  if (options?.inputImage) {
-    parts.push({
-      inlineData: {
-        mimeType: 'image/png',
-        data: options.inputImage.toString('base64')
+      // Don't retry on client errors (4xx), only server errors (5xx) and network issues
+      if (error.status && error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+
+      if (attempt === maxRetries) throw error;
+
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, attempt - 1)));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+async function tryFalAi(prompt: string, inputImageBuffer?: Buffer): Promise<Buffer> {
+  console.log('Trying fal.ai image generation...');
+
+  if (inputImageBuffer) {
+    // For image editing, use nano-banana/edit
+    let imageUrls: string[] = [];
+
+    try {
+      // Upload the input image to fal storage
+      const file = new File([inputImageBuffer], 'input.png', { type: 'image/png' });
+      const uploadedUrl = await fal.storage.upload(file);
+      imageUrls = [uploadedUrl];
+
+      console.log('Uploaded image to fal storage:', uploadedUrl);
+    } catch (uploadError) {
+      console.error('Failed to upload image to fal storage:', uploadError);
+      throw new Error(`Failed to upload image to fal.ai: ${uploadError}`);
+    }
+
+    const result = await fal.subscribe("fal-ai/nano-banana/edit", {
+      input: {
+        prompt,
+        image_urls: imageUrls,
+        num_images: 1,
+        output_format: "png"
       }
     });
-  }
 
+    if (!result.data.images || result.data.images.length === 0) {
+      throw new Error('No image generated from fal.ai');
+    }
+
+    // Download the image from the URL and convert to Buffer
+    const imageUrl = result.data.images[0].url;
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download image from fal.ai: ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } else {
+    // For pure image generation, use nano-banana
+    const result = await fal.subscribe("fal-ai/nano-banana", {
+      input: {
+        prompt,
+        num_images: 1,
+        output_format: "png"
+      }
+    });
+
+    if (!result.data.images || result.data.images.length === 0) {
+      throw new Error('No image generated from fal.ai');
+    }
+
+    // Download the image from the URL and convert to Buffer
+    const imageUrl = result.data.images[0].url;
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download image from fal.ai: ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+}
+
+async function tryGenerateWithGeminiModel(modelName: string, parts: any[]): Promise<Buffer> {
+  const model = gemini.getGenerativeModel({ model: modelName });
   const result = await model.generateContent({
     contents: [{ role: 'user', parts }],
     generationConfig: { responseModalities: ["IMAGE", "TEXT"] } as any
@@ -60,6 +145,69 @@ export async function generateImage(prompt: string, options?: { width?: number; 
   }
 
   throw new Error('No image data in response');
+}
+
+export async function generateImage(prompt: string, options?: { width?: number; height?: number; inputImage?: Buffer }): Promise<Buffer> {
+  const imagePrompt = options?.inputImage
+    ? PROMPTS.IMAGE_EDITING.replace('{prompt}', prompt)
+    : PROMPTS.IMAGE_GENERATION.replace('{prompt}', prompt);
+
+  const parts: any[] = [{ text: imagePrompt }];
+
+  if (options?.inputImage) {
+    parts.push({
+      inlineData: {
+        mimeType: 'image/png',
+        data: options.inputImage.toString('base64')
+      }
+    });
+  }
+
+  // Retry sequence: gemini-2.5-flash -> fal.ai -> gemini-2.5-flash -> fal.ai -> gemini-2.0-flash
+  const attempts: Array<{ type: 'gemini' | 'fal'; model?: string; delay: number }> = [
+    { type: 'gemini', model: IMAGE_MODEL, delay: 0 },
+    { type: 'fal', delay: 0 },
+    { type: 'gemini', model: IMAGE_MODEL, delay: 3000 },
+    { type: 'fal', delay: 3000 },
+    { type: 'gemini', model: IMAGE_MODEL_FALLBACK, delay: 0 }
+  ];
+
+  let lastError: any = null;
+
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i];
+
+    try {
+      if (attempt.delay > 0) {
+        console.log(`Waiting ${attempt.delay}ms before attempt ${i + 1}...`);
+        await new Promise(resolve => setTimeout(resolve, attempt.delay));
+      }
+
+      if (attempt.type === 'gemini') {
+        const modelName = attempt.model || IMAGE_MODEL_FALLBACK;
+        console.log(`Attempt ${i + 1}: Trying Gemini model ${modelName}`);
+        return await tryGenerateWithGeminiModel(modelName, parts);
+      } else {
+        console.log(`Attempt ${i + 1}: Trying fal.ai`);
+        return await tryFalAi(imagePrompt, options?.inputImage);
+      }
+    } catch (error: any) {
+      console.warn(`Attempt ${i + 1} failed:`, error.message);
+      lastError = error;
+
+      // For non-500 errors on first Gemini attempt, skip straight to final fallback
+      if (i === 0 && attempt.type === 'gemini' && error.status && error.status !== 500) {
+        console.log('Non-500 error detected, skipping to final Gemini fallback');
+        try {
+          return await tryGenerateWithGeminiModel(IMAGE_MODEL_FALLBACK, parts);
+        } catch (finalError: any) {
+          throw new Error(`All attempts failed. Last errors: Initial: ${error.message}, Final: ${finalError.message}`);
+        }
+      }
+    }
+  }
+
+  throw new Error(`All image generation attempts failed. Last error: ${lastError?.message || 'Unknown error'}`);
 }
 
 export async function editImage(imageBuffer: Buffer, editPrompt: string): Promise<Buffer> {
@@ -163,8 +311,6 @@ export async function generateJSONWithImages<T>(
   const logPath = path.join(testDir, `${logId}_image_context.log`);
 
   function writeLog(message: string) {
-    const logEntry = `[${new Date().toISOString()}] ${message}\n`;
-    fs.appendFileSync(logPath, logEntry);
   }
 
   writeLog(`=== IMAGE CONTEXT SESSION START - ID: ${logId} ===`);
@@ -240,7 +386,7 @@ export async function generateJSONWithImages<T>(
           const fileName = `${logId}_image_${i + 1}.${fileExtension}`;
           const imagePath = path.join(testDir, fileName);
 
-          fs.writeFileSync(imagePath, imageBuffer);
+          // fs.writeFileSync(imagePath, imageBuffer);
 
           loadedImages.push({
             url: imageContext.url,
@@ -266,7 +412,7 @@ export async function generateJSONWithImages<T>(
 
   // Save full prompt to file
   const promptPath = path.join(testDir, `${logId}_full_prompt.txt`);
-  fs.writeFileSync(promptPath, fullTextPrompt);
+  // fs.writeFileSync(promptPath, fullTextPrompt);
   writeLog(`Full prompt saved to: ${promptPath}`);
 
   // Save detailed JSON log
@@ -283,7 +429,7 @@ export async function generateJSONWithImages<T>(
   };
 
   const jsonLogPath = path.join(testDir, `${logId}_detailed_log.json`);
-  fs.writeFileSync(jsonLogPath, JSON.stringify(jsonLogData, null, 2));
+  // fs.writeFileSync(jsonLogPath, JSON.stringify(jsonLogData, null, 2));
   writeLog(`Detailed JSON log saved to: ${jsonLogPath}`);
 
   writeLog(`Sending to Gemini with ${parts.length} parts`);

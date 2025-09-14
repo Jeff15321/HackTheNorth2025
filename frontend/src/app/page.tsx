@@ -13,7 +13,7 @@ import * as THREE from "three";
 export default function Home() {
   const spacing = 3.2;
   const instances = getCharacters(spacing);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(2);
   // Selectors retained only for future use; can be removed if unused
   // const selectedIndex = useSceneStore((s) => s.selectedIndex);
   // const sidebarVisible = useSceneStore((s) => s.sidebarVisible);

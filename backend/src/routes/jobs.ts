@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { addJob, getJobStatus, cancelJob, getQueueInfo } from '../utils/queue.js';
-import { SchemaType, Schema } from '@google/generative-ai';
+import { SchemaType, type Schema } from '@google/generative-ai';
 
 export async function jobRoutes(fastify: FastifyInstance) {
   const jobsSchema = {

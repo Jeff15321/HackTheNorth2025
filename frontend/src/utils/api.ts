@@ -162,10 +162,18 @@ export const jobApi = {
     enhanced_plot: string;
     enhanced_summary: string;
   }> {
-    return fetchApi('/api/jobs/script-enhancement', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    console.log('Sending script enhancement request:', data);
+    try {
+      const result = await fetchApi('/api/jobs/script-enhancement', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      console.log('Script enhancement response:', result);
+      return result;
+    } catch (error) {
+      console.error('Script enhancement API error:', error);
+      throw error;
+    }
   },
 
   async createVideoGeneration(data: {
@@ -294,7 +302,7 @@ export class EventSourceManager {
   }
 
   closeAllEventSources() {
-    this.eventSources.forEach((eventSource, key) => {
+    this.eventSources.forEach((eventSource) => {
       eventSource.close();
     });
     this.eventSources.clear();

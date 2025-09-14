@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
 import Typewriter from "@/components/common/Typewriter";
-import { scriptStore, setScriptDataValue, setShouldAnimateScriptData } from "@/data/scriptData";
+import { setScriptDataValue, setShouldAnimateScriptData } from "@/data/scriptData";
 import LoadingClapBoard from "../common/ClapboardLoading3D";
 import { DuoButton, DuoTextArea } from "@/components/duolingo";
 import { useScript, useProject, useProjectData } from "@/hooks/useBackendIntegration";
@@ -17,14 +17,15 @@ export default function Character2Page() {
   const initialTopMessage =
     "Welcome to Script Enhancement! Enter a base plot and I'll enhance it with better pacing, character development, and cinematic structure.";
 
-  const [scriptData, setTopScript] = useState<string>(scriptStore.scriptData || initialTopMessage);
+  const [scriptData, setTopScript] = useState<string>("");
   const [prompt, setPrompt] = useState<string>("");
   const [typeKey, setTypeKey] = useState<number>(0);
-  const [shouldAnimate, setShouldAnimate] = useState<boolean>(scriptStore.shouldAnimateScriptData);
+  const [shouldAnimate, setShouldAnimate] = useState<boolean>(false);
   const [targetScenes] = useState<number>(3);
-  const [enhancementResult, setEnhancementResult] = useState<{
-    enhanced_plot: string;
-    enhanced_summary: string;
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [enhancementContext, setEnhancementContext] = useState<{
+    base_plot: string;
+    characters_context: any[];
   } | null>(null);
 
   const handleTypewriterDone = useCallback(() => {
@@ -38,16 +39,52 @@ export default function Character2Page() {
     }
   }, [shouldAnimate]);
 
-  // Load existing enhanced script if available
+  // Initialize with current project's plot when component mounts or project changes
   useEffect(() => {
-    if (script.enhancedPlot) {
+    const initializeScript = async () => {
+      if (project?.currentProject && !isInitialized) {
+        try {
+          // Check if project already has a plot
+          if (project.currentProject.plot && project.currentProject.plot.trim()) {
+            const currentPlot = project.currentProject.plot;
+            const currentSummary = project.currentProject.summary || '';
+
+            setTopScript(currentPlot);
+            setScriptDataValue(currentPlot);
+
+            // Plot loaded successfully
+          } else {
+            // No existing plot, show welcome message
+            setTopScript(initialTopMessage);
+          }
+          setIsInitialized(true);
+        } catch (error) {
+          console.error('Error initializing script:', error);
+          setTopScript(initialTopMessage);
+          setIsInitialized(true);
+        }
+      } else if (!project?.currentProject) {
+        // No project selected, show welcome message
+        setTopScript(initialTopMessage);
+        setIsInitialized(true);
+      }
+    };
+
+    initializeScript();
+  }, [project?.currentProject, isInitialized, initialTopMessage]);
+
+  // Update when script enhancement data changes
+  useEffect(() => {
+    if (script.enhancedPlot && isInitialized) {
       setTopScript(script.enhancedPlot);
       setScriptDataValue(script.enhancedPlot);
+
+      // Enhanced script loaded successfully
     }
-  }, [script.enhancedPlot]);
+  }, [script.enhancedPlot, script.enhancedSummary, isInitialized]);
 
   async function handleSubmit() {
-    if (!prompt.trim() || script.isEnhancing) return;
+    if (!prompt.trim() || script.isEnhancing || !project?.currentProject) return;
 
     const basePlot = prompt.trim();
     setPrompt("");
@@ -57,20 +94,23 @@ export default function Character2Page() {
     try {
       // Get current characters for context
       const characters = projectData.characters.map(char => ({
-        name: char.metadata.name,
-        description: char.metadata.description,
-        role: char.metadata.role,
-        age: char.metadata.age,
-        personality: char.metadata.personality,
-        backstory: char.metadata.backstory
+        name: char.metadata?.name || 'Unknown',
+        description: char.metadata?.description || 'No description',
+        role: char.metadata?.role || 'Unknown',
+        age: char.metadata?.age || 30,
+        personality: char.metadata?.personality || 'No personality info',
+        backstory: char.metadata?.backstory || 'No backstory'
       }));
+
+      console.log('Enhancing script with:', { basePlot, characters: characters.length });
 
       const result = await script.enhance(basePlot, characters);
 
       if (result.success) {
-        setEnhancementResult({
-          enhanced_plot: result.enhanced_plot,
-          enhanced_summary: result.enhanced_summary
+        // Store the enhancement context for reference
+        setEnhancementContext({
+          base_plot: basePlot,
+          characters_context: characters
         });
 
         setTopScript(result.enhanced_plot);
@@ -81,19 +121,15 @@ export default function Character2Page() {
         setShouldAnimateScriptData(true);
         setTypeKey((k) => k + 1);
       } else {
-        setTopScript("Sorry, there was an error enhancing your script. Please try again.");
+        setTopScript(`Sorry, there was an error enhancing your script. Please try again.`);
       }
     } catch (error) {
       console.error('Script enhancement error:', error);
-      setTopScript("Connection error. Please check your connection and try again.");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setTopScript(`Connection error: ${errorMessage}. Please check your connection and try again.`);
     }
   }
 
-  const examplePrompts = [
-    "A space exploration mission discovers an ancient alien artifact that changes everything",
-    "Two rival journalists must work together to uncover a conspiracy in 1940s Hollywood",
-    "A young programmer discovers their AI creation has developed consciousness and wants freedom",
-  ];
 
   const isLoading = script.isEnhancing;
   const hasProjectWithCharacters = project?.currentProject && projectData.characters.length > 0;
@@ -117,23 +153,46 @@ export default function Character2Page() {
         </div>
 
         {/* Status/Info Panel */}
-        {!hasProjectWithCharacters && (
+        {!project?.currentProject ? (
+          <div className="rounded-[16px] border border-red-500/20 bg-red-900/10 p-4 text-red-400">
+            <div className="text-sm">
+              ⚠️ <strong>No Project Selected:</strong> Please create or select a project first!
+            </div>
+          </div>
+        ) : !hasProjectWithCharacters ? (
           <div className="rounded-[16px] border border-orange-500/20 bg-orange-900/10 p-4 text-orange-400">
             <div className="text-sm">
               💡 <strong>Tip:</strong> Complete the Director conversation first to get characters, then come back here to enhance your script with character context!
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Enhancement Result Summary */}
-        {enhancementResult && (
-          <div className="rounded-[16px] border border-green-500/20 bg-green-900/10 p-4">
-            <h3 className="text-green-400 font-medium mb-2">✅ Enhancement Complete</h3>
-            <div className="text-white/80 text-sm">
-              <strong>Summary:</strong> {enhancementResult.enhanced_summary}
-            </div>
-            <div className="text-white/60 text-xs mt-2">
-              Your enhanced script is ready for scene generation! This will create 3 scenes: Scene 1 (3 frames = 24s), Scene 2 (2 frames = 16s), Scene 3 (3 frames = 24s). Total: 64 seconds.
+        {/* Enhancement Context Reference */}
+        {enhancementContext && (
+          <div className="rounded-[16px] border border-blue-500/20 bg-blue-900/10 p-4">
+            <h3 className="text-blue-400 font-medium mb-3">📝 Enhancement Reference</h3>
+
+            <div className="space-y-3">
+              <div>
+                <div className="text-white/70 text-sm font-medium mb-1">Base Plot:</div>
+                <div className="text-white/80 text-sm bg-black/20 rounded p-2 max-h-20 overflow-y-auto">
+                  {enhancementContext.base_plot}
+                </div>
+              </div>
+
+              {enhancementContext.characters_context.length > 0 && (
+                <div>
+                  <div className="text-white/70 text-sm font-medium mb-1">Characters Context ({enhancementContext.characters_context.length}):</div>
+                  <div className="text-white/80 text-xs bg-black/20 rounded p-2 max-h-16 overflow-y-auto">
+                    {enhancementContext.characters_context.map((char, i) => (
+                      <span key={i}>
+                        <strong>{char.name}</strong>: {char.description}
+                        {i < enhancementContext.characters_context.length - 1 ? ' | ' : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -197,25 +256,12 @@ export default function Character2Page() {
               )}
             </div>
 
-            {/* Suggestions */}
-            <div className="flex flex-wrap gap-2">
-              {examplePrompts.map((ex) => (
-                <button
-                  key={ex}
-                  className="font-feather rounded-full border border-white/12 bg-white/5 px-3 py-1 text-[12px] text-white/70 hover:border-white/22 hover:text-white/90"
-                  onClick={() => setPrompt(ex)}
-                  disabled={isLoading}
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
 
             <div className="flex items-center justify-end">
               <DuoButton
                 size="md"
                 onClick={handleSubmit}
-                disabled={!prompt.trim() || isLoading}
+                disabled={!prompt.trim() || isLoading || !project?.currentProject}
               >
                 {isLoading ? 'Enhancing Script...' : 'Enhance Script'}
               </DuoButton>
