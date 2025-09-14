@@ -56,16 +56,16 @@ export function ProjectTimeline({ scenes, onSceneClick, projectTitle, totalDurat
   const [isPlaying, setIsPlaying] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen font-game" style={{ backgroundColor: 'var(--game-cream)' }}>
       {/* Header */}
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b backdrop-blur-sm sticky top-0 z-10" style={{ borderColor: 'var(--game-light-gray)', backgroundColor: 'rgba(245, 241, 232, 0.5)' }}>
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Film className="w-8 h-8 text-primary" />
+              <Film className="w-8 h-8" style={{ color: 'var(--game-orange)' }} />
               <div>
-                <h1 className="text-2xl font-bold text-foreground">{projectTitle}</h1>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-2xl font-bold" style={{ color: 'var(--game-charcoal)' }}>{projectTitle}</h1>
+                <p className="text-sm" style={{ color: 'var(--game-dark-gray)' }}>
                   {scenes.length} scenes • {Math.floor(totalDuration / 60)}m {totalDuration % 60}s total
                 </p>
               </div>
@@ -75,12 +75,34 @@ export function ProjectTimeline({ scenes, onSceneClick, projectTitle, totalDurat
                 variant="outline"
                 size="sm"
                 onClick={() => setIsPlaying(!isPlaying)}
-                className="border-primary/20 hover:border-primary/40"
+                className="transition-all"
+                style={{ border: '2px solid var(--game-orange)', color: 'var(--game-charcoal)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--game-orange)';
+                  e.currentTarget.style.color = 'var(--game-soft-white)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--game-charcoal)';
+                }}
               >
                 {isPlaying ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
                 {isPlaying ? 'Pause' : 'Preview Film'}
               </Button>
-              <Button className="bg-gradient-to-r from-primary to-accent hover:from-primary/80 hover:to-accent/80">
+              <Button 
+                className="transition-all"
+                style={{ 
+                  background: 'linear-gradient(to right, var(--game-orange), var(--game-warm-orange))',
+                  color: 'var(--game-soft-white)',
+                  border: '2px solid var(--game-orange)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(to right, rgba(246, 183, 142, 0.8), rgba(230, 164, 120, 0.8))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(to right, var(--game-orange), var(--game-warm-orange))';
+                }}
+              >
                 Export Film
               </Button>
             </div>
@@ -91,8 +113,8 @@ export function ProjectTimeline({ scenes, onSceneClick, projectTitle, totalDurat
       {/* Timeline */}
       <div className="container mx-auto px-6 py-6">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold mb-2">Scene Timeline</h2>
-          <p className="text-muted-foreground">Click on any scene to view details and make edits</p>
+          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--game-charcoal)' }}>Scene Timeline</h2>
+          <p style={{ color: 'var(--game-dark-gray)' }}>Click on any scene to view details and make edits</p>
         </div>
 
         {/* Film Strip Container */}

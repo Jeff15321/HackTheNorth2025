@@ -2,19 +2,17 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
-import { themeCharacter1, colors } from "@/styles/colors";
 import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
 import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData, setEntryLoading, initializeAllLoadingFalse, GalleryCategory } from "@/data/characterData";
 import { sendImageWithScribbles } from "@/lib/imageAgent";
 import LoadingClapBoard from "../common/loading_clap_board";
 import { useBackendStore } from "@/store/backendStore";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { X, ChevronUp, ChevronDown, Send } from "lucide-react";
 
 export default function Character3Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
-
-  const textColor = themeCharacter1.text;
-  const borderColor = themeCharacter1.border;
-  const backgroundColor = themeCharacter1.background;
 
   const [activeTab, setActiveTab] = useState<GalleryCategory>("characters");
   const entries = characterGallaryData[activeTab];
@@ -97,59 +95,66 @@ export default function Character3Page() {
 
   return (
     <div
+      className="font-game"
       style={{
         position: "fixed",
         top: 0,
         right: 0,
         height: "100vh",
         width: "80%",
-        background: backgroundColor,
-        borderLeft: "1px solid rgba(0,0,0,0.08)",
-        boxShadow: `-8px 0 24px ${colors.shadow}`,
-        padding: 16,
+        background: "var(--game-soft-white)",
+        borderLeft: "1px solid var(--game-light-gray)",
+        boxShadow: "-8px 0 24px rgba(0,0,0,0.1)",
+        padding: 20,
         zIndex: 10,
         display: "flex",
         flexDirection: "column",
-        gap: 12,
-        color: textColor,
+        gap: 16,
+        color: "var(--game-charcoal)",
+        borderRadius: "16px 0 0 16px",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 12 }}>
           {(["characters", "objects", "scenes"] as GalleryCategory[]).map((tab) => {
             const selected = activeTab === tab;
             return (
-              <button
+              <Button
                 key={tab}
+                variant={selected ? "default" : "outline"}
                 onClick={() => { setActiveTab(tab); setIndex(0); }}
+                className="font-game"
                 style={{
-                  border: `1px solid ${selected ? borderColor : colors.borderLight}`,
-                  padding: "6px 10px",
-                  borderRadius: 16,
-                  background: selected ? colors.white : "transparent",
-                  color: selected ? borderColor : textColor,
-                  cursor: "pointer",
+                  background: selected ? "var(--game-orange)" : "transparent",
+                  color: selected ? "var(--game-soft-white)" : "var(--game-charcoal)",
+                  border: selected ? "2px solid var(--game-orange)" : "2px solid var(--game-light-gray)",
+                  borderRadius: 12,
                   textTransform: "capitalize",
+                  fontSize: 16,
+                  fontWeight: 500,
+                  padding: "8px 16px",
                 }}
               >
                 {tab}
-              </button>
+              </Button>
             );
           })}
         </div>
-        <button
-          style={{ border: `1px solid ${colors.borderLight}`, padding: "6px 10px", borderRadius: 6, background: colors.white }}
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={reset}
+          className="text-var(--game-charcoal) hover:bg-var(--game-orange) hover:text-var(--game-soft-white)"
         >
-          Close
-        </button>
+          <X className="w-4 h-4" />
+        </Button>
       </div>
 
       <div
         style={{
           flex: 1,
           display: "flex",
-          gap: 12,
+          gap: 16,
           minHeight: 0,
         }}
       >
@@ -160,29 +165,33 @@ export default function Character3Page() {
             display: "flex",
             flexDirection: "column",
             alignItems: "stretch",
-            border: `1px solid ${colors.borderLight}`,
-            borderRadius: 6,
-            background: colors.white,
+            border: "2px solid var(--game-light-gray)",
+            borderRadius: 16,
+            background: "var(--game-cream)",
             overflow: "auto",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
           }}
         >
-          <button
+          <Button
             onClick={goPrev}
+            variant="ghost"
             aria-label="Previous image"
+            className="font-game"
             style={{
               border: "none",
               background: "transparent",
-              padding: 8,
-              cursor: "pointer",
-              color: borderColor,
-              borderBottom: `1px solid ${colors.cardBorder}`,
+              padding: 12,
+              color: "var(--game-charcoal)",
+              borderBottom: "2px solid var(--game-light-gray)",
+              borderRadius: "16px 16px 0 0",
+              height: 48,
             }}
           >
-            ▲
-          </button>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
+            <ChevronUp className="w-5 h-5" />
+          </Button>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
             {!hasEntries ? (
-              <div style={{ opacity: 0.7 }}>No images available.</div>
+              <div className="font-game" style={{ opacity: 0.7, color: "var(--game-dark-gray)" }}>No images available.</div>
             ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
               <LoadingClapBoard />
             ) : (
@@ -197,50 +206,61 @@ export default function Character3Page() {
               />
             )}
           </div>
-          <button
+          <Button
             onClick={goNext}
+            variant="ghost"
             aria-label="Next image"
+            className="font-game"
             style={{
               border: "none",
               background: "transparent",
-              padding: 8,
-              cursor: "pointer",
-              color: borderColor,
-              borderTop: `1px solid ${colors.cardBorder}`,
+              padding: 12,
+              color: "var(--game-charcoal)",
+              borderTop: "2px solid var(--game-light-gray)",
+              borderRadius: "0 0 16px 16px",
+              height: 48,
             }}
           >
-            ▼
-          </button>
+            <ChevronDown className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Right column: description for current image */}
         <div
           style={{
             flex: 1,
-            border: `1px solid ${colors.borderLight}`,
-            borderRadius: 6,
-            background: colors.white,
-            color: borderColor,
-            padding: "12px 14px",
+            border: "2px solid var(--game-light-gray)",
+            borderRadius: 16,
+            background: "var(--game-cream)",
+            color: "var(--game-charcoal)",
+            padding: 20,
             display: "flex",
             flexDirection: "column",
             minHeight: 0,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontWeight: 600 }}>{index + 1}/{entries.length}</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div className="font-game-bold" style={{ fontSize: 18, color: "var(--game-charcoal)" }}>
+              {index + 1}/{entries.length}
+            </div>
           </div>
-          <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          
+          {/* Description area - takes up most space */}
+          <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
             {!hasEntries ? (
-              <div style={{ opacity: 0.7 }}>No description available.</div>
+              <div className="font-game" style={{ opacity: 0.7, color: "var(--game-dark-gray)" }}>No description available.</div>
             ) : isProcessing && characterGallaryData[activeTab][index]?.loading ? (
               <LoadingClapBoard />
             ) : (
-              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{current!.description}</p>
+              <p className="font-game" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: 16 }}>{current!.description}</p>
             )}
           </div>
-          <div style={{ borderTop: `1px solid ${colors.cardBorder}`, paddingTop: 8, marginTop: 8, display: "flex", minHeight: 0, flex: 1 }}>
-            <textarea
+          
+          {/* Input area - fixed height at bottom */}
+          <div style={{ display: "flex", gap: 12, alignItems: "stretch", height: 48 }}>
+            <Textarea
+              className="font-game"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -249,17 +269,58 @@ export default function Character3Page() {
                   handleSubmitCurrent();
                 }
               }}
-              placeholder="Describe changes (Enter to submit, Shift+Enter for newline)"
+              placeholder="Describe changes to the image... (Enter to submit, Shift+Enter for newline)"
               style={{
-                width: "100%",
-                border: `1px solid ${colors.borderLight}`,
-                borderRadius: 6,
-                padding: "6px 10px",
+                flex: 1,
+                height: 48,
+                border: "2px solid var(--game-light-gray)",
+                borderRadius: 12,
+                padding: "8px 12px",
                 outline: "none",
                 resize: "none",
-                height: "100%",
+                background: "var(--game-soft-white)",
+                color: "var(--game-charcoal)",
+                fontSize: 14,
+                lineHeight: 1.4,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                transition: "all 0.2s ease",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--game-orange)";
+                e.currentTarget.style.boxShadow = "0 4px 16px rgba(246, 183, 142, 0.3)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--game-light-gray)";
+                e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
               }}
             />
+            <Button
+              className="font-game"
+              onClick={handleSubmitCurrent}
+              disabled={!input.trim() || isProcessing}
+              style={{
+                height: 48,
+                padding: "0 16px",
+                background: isProcessing ? "var(--game-light-gray)" : "var(--game-orange)",
+                color: "var(--game-soft-white)",
+                border: "2px solid var(--game-orange)",
+                borderRadius: 12,
+                fontSize: 14,
+                fontWeight: 500,
+                boxShadow: "0 4px 12px rgba(246, 183, 142, 0.3)",
+                transition: "all 0.2s ease",
+                opacity: isProcessing ? 0.7 : 1,
+              }}
+            >
+              {isProcessing ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Generate
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>

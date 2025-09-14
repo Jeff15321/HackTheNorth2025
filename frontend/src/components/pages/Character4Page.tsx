@@ -2,16 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSceneStore } from "@/store/useSceneStore";
-import { themeCharacter1, colors } from "@/styles/colors";
 import { songCategories, addSelectedId, removeSelectedId, isSelectedId, selected_id } from "@/data/songData";
 import { selectSong, removeSong } from "@/lib/songsClient";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { X, Play, Pause, Music, Trash2 } from "lucide-react";
 
 export default function Character4Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
-
-  const textColor = themeCharacter1.text;
-  const borderColor = themeCharacter1.border;
-  const backgroundColor = themeCharacter1.background;
 
   const [activeCategoryId, setActiveCategoryId] = useState<string>(songCategories[0]?.id || "");
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
@@ -78,151 +76,250 @@ export default function Character4Page() {
 
   return (
     <div
+      className="font-game"
       style={{
         position: "fixed",
         top: 0,
         right: 0,
         height: "100vh",
         width: "80%",
-        background: backgroundColor,
-        borderLeft: "1px solid rgba(0,0,0,0.08)",
-        boxShadow: `-8px 0 24px ${colors.shadow}`,
-        padding: 16,
+        background: "var(--game-soft-white)",
+        borderLeft: "1px solid var(--game-light-gray)",
+        boxShadow: "-8px 0 24px rgba(0,0,0,0.1)",
+        padding: 20,
         zIndex: 10,
         display: "flex",
         flexDirection: "column",
-        gap: 12,
-        color: textColor,
+        gap: 16,
+        color: "var(--game-charcoal)",
+        borderRadius: "16px 0 0 16px",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>character_4</h2>
-        <button style={{ border: `1px solid ${colors.borderLight}`, padding: "6px 10px", borderRadius: 6, background: colors.white }} onClick={reset}>
-          Close
-        </button>
+        <h2 className="font-game-bold" style={{ fontSize: 24, color: "var(--game-charcoal)" }}>MUSIC SELECTOR</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={reset}
+          className="text-var(--game-charcoal) hover:bg-var(--game-orange) hover:text-var(--game-soft-white)"
+        >
+          <X className="w-4 h-4" />
+        </Button>
       </div>
 
-      {/* Tabs - horizontal scroll */}
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-        {songCategories.map((cat) => {
-          const selected = cat.id === activeCategoryId;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategoryId(cat.id)}
-              style={{
-                border: `1px solid ${selected ? borderColor : colors.borderLight}`,
-                padding: "6px 10px",
-                borderRadius: 16,
-                background: selected ? colors.white : "transparent",
-                color: selected ? borderColor : textColor,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {cat.name}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Two-column: Left list, Right selected */}
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0 }}>
-        {/* Left: list */}
-        <div style={{
-          flex: 1,
-          border: `1px solid ${colors.borderLight}`,
-          borderRadius: 6,
-          background: colors.white,
-          color: borderColor,
-          overflow: "auto",
-        }}>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {activeCategory?.songs.map((s) => (
-              <li key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderBottom: `1px solid ${colors.cardBorder}` }}>
-                <button
-                  aria-label={isPlaying(s.id) ? "Pause" : "Play"}
-                  onClick={() => togglePlay(s.id, s.file)}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    border: `1px solid ${colors.borderLight}`,
-                    background: isPlaying(s.id) ? themeCharacter1.button : colors.white,
-                    color: isPlaying(s.id) ? colors.white : borderColor,
-                    cursor: "pointer",
+      {/* Tabs using shadcn Tabs component */}
+      <Tabs value={activeCategoryId} onValueChange={setActiveCategoryId} className="w-full">
+        <TabsList className="grid w-full grid-cols-6 mb-4 rounded-xl" style={{ backgroundColor: 'var(--game-cream)', border: '2px solid var(--game-light-gray)' }}>
+          {songCategories.slice(0, 6).map((cat, index) => {
+            const colors = [
+              'var(--game-orange)',      // Sci-Fi
+              'var(--game-error)',       // Horror - red
+              'var(--game-success)',     // Movies - green
+              'var(--game-warning)',     // Action - orange
+              'var(--game-orange)',      // Drama
+              'var(--game-warm-orange)'  // Comedy
+            ];
+            const hoverColor = colors[index] || 'var(--game-orange)';
+            
+            return (
+              <TabsTrigger 
+                key={cat.id} 
+                value={cat.id}
+                className="font-game border-0 rounded-xl transition-all duration-200"
+                style={{ 
+                  color: 'var(--game-charcoal)',
+                  backgroundColor: activeCategoryId === cat.id ? 'var(--game-orange)' : 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  if (activeCategoryId !== cat.id) {
+                    e.currentTarget.style.backgroundColor = hoverColor;
+                    e.currentTarget.style.color = 'var(--game-soft-white)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeCategoryId !== cat.id) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--game-charcoal)';
+                  }
+                }}
+              >
+                {cat.name}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+        
+        {songCategories.length > 6 && (
+          <TabsList className="grid w-full grid-cols-6 mb-4 rounded-xl" style={{ backgroundColor: 'var(--game-cream)', border: '2px solid var(--game-light-gray)' }}>
+            {songCategories.slice(6, 12).map((cat, index) => {
+              const colors = [
+                'var(--game-warm-orange)', // Romance
+                'var(--game-error)',       // Thriller - red
+                'var(--game-success)',     // Documentary - green
+                'var(--game-orange)',      // Fantasy
+                'var(--game-warning)',     // Animation - orange
+                'var(--game-orange)'       // Adventure
+              ];
+              const hoverColor = colors[index] || 'var(--game-orange)';
+              
+              return (
+                <TabsTrigger 
+                  key={cat.id} 
+                  value={cat.id}
+                  className="font-game border-0 rounded-xl transition-all duration-200"
+                  style={{ 
+                    color: 'var(--game-charcoal)',
+                    backgroundColor: activeCategoryId === cat.id ? 'var(--game-orange)' : 'transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeCategoryId !== cat.id) {
+                      e.currentTarget.style.backgroundColor = hoverColor;
+                      e.currentTarget.style.color = 'var(--game-soft-white)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeCategoryId !== cat.id) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--game-charcoal)';
+                    }
                   }}
                 >
-                  {isPlaying(s.id) ? "❚❚" : "▶"}
-                </button>
-                <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-                  <div style={{ fontSize: 12, opacity: 0.8, display: "flex", gap: 8 }}>
-                    <span>{s.author}</span>
-                    <span>•</span>
-                    <span>{s.duration}</span>
-                  </div>
-                </div>
-                <SongSelectButton songId={s.id} title={s.title} file={s.file} version={selectionVersion} onChange={() => setSelectionVersion((v) => v + 1)} />
-              </li>
-            ))}
-          </ul>
-        </div>
+                  {cat.name}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        )}
 
-        {/* Right: selected songs */}
-        <div style={{
-          width: "40%",
-          border: `1px solid ${colors.borderLight}`,
-          borderRadius: 6,
-          background: colors.white,
-          color: borderColor,
-          overflow: "auto",
-          padding: 12,
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>Selected Songs</div>
-          {selected_id.length === 0 ? (
-            <div style={{ opacity: 0.7 }}>No songs selected yet.</div>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-              {selected_id.map((entry) => (
-                <li key={String(entry.id)} style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${colors.cardBorder}`, padding: 8, borderRadius: 6 }}>
-                  <button
-                    aria-label={isPlaying(String(entry.id)) ? "Pause" : "Play"}
-                    onClick={() => togglePlay(String(entry.id), String((entry as any).file || ""))}
+        {/* Two-column: Left list, Right selected */}
+        <div style={{ display: "flex", gap: 16, flex: 1, minHeight: 0 }}>
+          {/* Left: list */}
+          <div style={{
+            flex: 1,
+            border: "2px solid var(--game-light-gray)",
+            borderRadius: 16,
+            background: "var(--game-cream)",
+            color: "var(--game-charcoal)",
+            overflow: "auto",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {activeCategory?.songs.map((s) => (
+                <li key={s.id} className="font-game" style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 12, 
+                  padding: 16, 
+                  borderBottom: "2px solid var(--game-light-gray)",
+                  transition: "background 0.2s ease"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--game-soft-white)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={isPlaying(s.id) ? "Pause" : "Play"}
+                    onClick={() => togglePlay(s.id, s.file)}
+                    className="font-game"
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      border: `1px solid ${colors.borderLight}`,
-                      background: isPlaying(String(entry.id)) ? themeCharacter1.button : colors.white,
-                      color: isPlaying(String(entry.id)) ? colors.white : borderColor,
-                      cursor: "pointer",
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      background: isPlaying(s.id) ? "var(--game-orange)" : "var(--game-soft-white)",
+                      color: isPlaying(s.id) ? "var(--game-soft-white)" : "var(--game-charcoal)",
+                      border: "2px solid var(--game-light-gray)",
                     }}
                   >
-                    {isPlaying(String(entry.id)) ? "❚❚" : "▶"}
-                  </button>
-                  <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{String((entry as any).title ?? entry.id)}</div>
-                    {(entry as any).file && <div style={{ fontSize: 12, opacity: 0.8 }}>{String((entry as any).file)}</div>}
+                    {isPlaying(s.id) ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  </Button>
+                  <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+                    <div className="font-game-bold" style={{ fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+                    <div className="font-game" style={{ fontSize: 14, color: "var(--game-dark-gray)", display: "flex", gap: 8 }}>
+                      <span>{s.author}</span>
+                      <span>•</span>
+                      <span>{s.duration}</span>
+                    </div>
                   </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await removeSong({ songId: String(entry.id) });
-                      } catch {}
-                      removeSelectedId(String(entry.id));
-                      setSelectionVersion((v) => v + 1);
-                    }}
-                    style={{ border: `1px solid ${colors.borderLight}`, padding: "4px 8px", borderRadius: 6, background: colors.white }}
-                  >
-                    Remove
-                  </button>
+                  <SongSelectButton songId={s.id} title={s.title} file={s.file} version={selectionVersion} onChange={() => setSelectionVersion((v) => v + 1)} />
                 </li>
               ))}
             </ul>
-          )}
+          </div>
+
+          {/* Right: selected songs */}
+          <div style={{
+            width: "40%",
+            border: "2px solid var(--game-light-gray)",
+            borderRadius: 16,
+            background: "var(--game-cream)",
+            color: "var(--game-charcoal)",
+            overflow: "auto",
+            padding: 20,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          }}>
+            <div className="font-game-bold" style={{ fontSize: 18, marginBottom: 16, color: "var(--game-charcoal)" }}>Selected Songs</div>
+            {selected_id.length === 0 ? (
+              <div className="font-game" style={{ opacity: 0.7, color: "var(--game-dark-gray)", textAlign: "center", padding: 20 }}>No songs selected yet.</div>
+            ) : (
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                {selected_id.map((entry) => (
+                  <li key={String(entry.id)} className="font-game" style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: 12, 
+                    border: "2px solid var(--game-light-gray)", 
+                    padding: 16, 
+                    borderRadius: 12,
+                    background: "var(--game-soft-white)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                  }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={isPlaying(String(entry.id)) ? "Pause" : "Play"}
+                      onClick={() => togglePlay(String(entry.id), String((entry as any).file || ""))}
+                      className="font-game"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        background: isPlaying(String(entry.id)) ? "var(--game-orange)" : "var(--game-cream)",
+                        color: isPlaying(String(entry.id)) ? "var(--game-soft-white)" : "var(--game-charcoal)",
+                        border: "2px solid var(--game-light-gray)",
+                      }}
+                    >
+                      {isPlaying(String(entry.id)) ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                    </Button>
+                    <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
+                      <div className="font-game-bold" style={{ fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{String((entry as any).title ?? entry.id)}</div>
+                      {(entry as any).file && <div className="font-game" style={{ fontSize: 12, color: "var(--game-dark-gray)" }}>{String((entry as any).file)}</div>}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await removeSong({ songId: String(entry.id) });
+                        } catch {}
+                        removeSelectedId(String(entry.id));
+                        setSelectionVersion((v) => v + 1);
+                      }}
+                      className="font-game text-var(--game-error) hover:bg-var(--game-error) hover:text-var(--game-soft-white)"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-      </div>
+      </Tabs>
     </div>
   );
 }
@@ -257,20 +354,26 @@ function SongSelectButton({ songId, title, file, onChange, version }: SongSelect
   }
 
   return (
-    <button
+    <Button
       onClick={handleClick}
+      variant={selected ? "default" : "outline"}
+      className="font-game"
       style={{
-        border: `1px solid ${colors.borderLight}`,
-        padding: "6px 10px",
-        borderRadius: 6,
-        background: selected ? themeCharacter1.button : colors.white,
-        color: selected ? "#fff" : themeCharacter1.border,
-        cursor: "pointer",
+        height: 40,
+        padding: "0 16px",
+        borderRadius: 12,
+        background: selected ? "var(--game-orange)" : "var(--game-soft-white)",
+        color: selected ? "var(--game-soft-white)" : "var(--game-charcoal)",
+        border: selected ? "2px solid var(--game-orange)" : "2px solid var(--game-light-gray)",
+        fontSize: 14,
+        fontWeight: 500,
         whiteSpace: "nowrap",
+        boxShadow: selected ? "0 4px 12px rgba(246, 183, 142, 0.3)" : "0 2px 8px rgba(0,0,0,0.1)",
+        transition: "all 0.2s ease",
       }}
     >
       {selected ? "Deselect" : "Select"}
-    </button>
+    </Button>
   );
 }
 

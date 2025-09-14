@@ -170,23 +170,33 @@ export function SceneStoryboard({ scene, onBack }: SceneStoryboardProps) {
   const cameraAngles = ['Wide Shot', 'Medium Shot', 'Close-up', 'Extreme Close-up', 'Over Shoulder', 'Low Angle', 'High Angle'];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen font-game" style={{ backgroundColor: 'var(--game-cream)' }}>
       {/* Header */}
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b backdrop-blur-sm sticky top-0 z-10" style={{ borderColor: 'var(--game-light-gray)', backgroundColor: 'rgba(245, 241, 232, 0.5)' }}>
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={onBack} className="hover:bg-muted">
+              <Button 
+                variant="ghost" 
+                onClick={onBack} 
+                className="transition-colors"
+                style={{ color: 'var(--game-charcoal)' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--game-light-gray)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Timeline
               </Button>
               <div>
                 <div className="flex items-center gap-3 mb-1">
-                  <Badge className="bg-stone-900/50 text-stone-200 border-stone-700/50">
+                  <Badge 
+                    className="border-0"
+                    style={{ backgroundColor: 'var(--game-charcoal)', color: 'var(--game-soft-white)', borderColor: 'var(--game-light-gray)' }}
+                  >
                     Scene {scene.order}
                   </Badge>
-                  <h1 className="text-xl font-semibold">{scene.title}</h1>
-                  <p className="mt-1 text-sm text-muted-foreground">{scene.duration}s • {shots.length} shots</p>
+                  <h1 className="text-xl font-semibold" style={{ color: 'var(--game-charcoal)' }}>{scene.title}</h1>
+                  <p className="mt-1 text-sm" style={{ color: 'var(--game-dark-gray)' }}>{scene.duration}s • {shots.length} shots</p>
                 </div>
               </div>
             </div>
@@ -195,10 +205,25 @@ export function SceneStoryboard({ scene, onBack }: SceneStoryboardProps) {
                 <Download className="w-4 h-4 mr-2" />
                 Export Scene
               </Button>
-              <Button 
+              <Button
                 onClick={handleRegenerate}
                 disabled={isRegenerating}
-                className="bg-gradient-to-r from-primary to-accent hover:from-primary/80 hover:to-accent/80"
+                className="transition-all"
+                style={{ 
+                  background: 'linear-gradient(to right, var(--game-orange), var(--game-warm-orange))',
+                  color: 'var(--game-soft-white)',
+                  border: '2px solid var(--game-orange)'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isRegenerating) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, rgba(246, 183, 142, 0.8), rgba(230, 164, 120, 0.8))';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isRegenerating) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, var(--game-orange), var(--game-warm-orange))';
+                  }
+                }}
               >
                 {isRegenerating ? (
                   <>
@@ -246,25 +271,25 @@ export function SceneStoryboard({ scene, onBack }: SceneStoryboardProps) {
                     />
                     
                     {/* Shot Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent, transparent)' }} />
                     
                     {/* Shot Number */}
                     <div className="absolute top-3 left-3">
-                      <Badge className="bg-black/70 text-white text-sm">
+                      <Badge className="text-sm" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'var(--game-soft-white)' }}>
                         Shot {shot.order}
                       </Badge>
                     </div>
                     
                     {/* Duration */}
                     <div className="absolute top-3 right-3">
-                      <Badge className="bg-black/70 text-white text-sm">
+                      <Badge className="text-sm" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'var(--game-soft-white)' }}>
                         {shot.duration}s
                       </Badge>
                     </div>
                     
                     {/* Camera Angle */}
                     <div className="absolute bottom-3 right-3">
-                      <Badge className="bg-primary/80 text-primary-foreground text-sm">
+                      <Badge className="text-sm" style={{ backgroundColor: 'var(--game-orange)', color: 'var(--game-soft-white)' }}>
                         <Camera className="w-3 h-3 mr-1" />
                         {shot.cameraAngle}
                       </Badge>
@@ -272,14 +297,14 @@ export function SceneStoryboard({ scene, onBack }: SceneStoryboardProps) {
                     
                     {/* Shot Title & Description */}
                     <div className="absolute bottom-3 left-3 right-32">
-                      <h4 className="text-white text-base font-semibold mb-1">{shot.title}</h4>
-                      <p className="text-white/80 text-sm line-clamp-2">{shot.description}</p>
+                      <h4 className="text-base font-semibold mb-1" style={{ color: 'var(--game-soft-white)' }}>{shot.title}</h4>
+                      <p className="text-sm line-clamp-2" style={{ color: 'rgba(254, 252, 247, 0.8)' }}>{shot.description}</p>
                     </div>
                     
                     {/* Character Count */}
                     {shot.characters.length > 0 && (
                       <div className="absolute top-3 left-1/2 transform -translate-x-1/2">
-                        <Badge className="bg-accent/80 text-accent-foreground text-sm">
+                        <Badge className="text-sm" style={{ backgroundColor: 'var(--game-warm-orange)', color: 'var(--game-soft-white)' }}>
                           <Users className="w-3 h-3 mr-1" />
                           {shot.characters.length}
                         </Badge>
@@ -289,7 +314,7 @@ export function SceneStoryboard({ scene, onBack }: SceneStoryboardProps) {
                   
                   {/* Hover Metadata Dropdown */}
                   {hoveredShot === shot.id && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 p-4">
+                    <div className="absolute top-full left-0 right-0 mt-2 rounded-lg shadow-xl z-50 p-4" style={{ backgroundColor: 'var(--game-charcoal)', border: '2px solid var(--game-light-gray)' }}>
                       <div className="space-y-3">
                         <div>
                           <h4 className="text-sm font-semibold text-white mb-2">{shot.title}</h4>
@@ -360,89 +385,6 @@ export function SceneStoryboard({ scene, onBack }: SceneStoryboardProps) {
                 </div>
               ))}
             </div>
-
-            {/* Shot Details Panel */}
-            {selectedShot && (
-              <div className="border border-border bg-card/30 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold">Shot Details</h3>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Shot
-                  </Button>
-                </div>
-                
-                {(() => {
-                  const shot = shots.find(s => s.id === selectedShot);
-                  if (!shot) return null;
-                  
-                  return (
-                    <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-6">
-                        <div>
-                          <label className="text-sm text-muted-foreground mb-3 block">Shot Title</label>
-                          <Input value={shot.title} className="bg-input-background text-base" />
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground mb-3 block">Description</label>
-                          <Textarea value={shot.description} className="bg-input-background min-h-[120px] text-base" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm text-muted-foreground mb-3 block">Duration (s)</label>
-                            <Input type="number" value={shot.duration} step="0.1" className="bg-input-background text-base" />
-                          </div>
-                          <div>
-                            <label className="text-sm text-muted-foreground mb-3 block">Camera Angle</label>
-                            <select className="w-full p-3 rounded-md bg-input-background border border-border text-base">
-                              {cameraAngles.map(angle => (
-                                <option key={angle} value={angle} selected={shot.cameraAngle === angle}>
-                                  {angle}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-6">
-                        <div>
-                          <label className="text-sm text-muted-foreground mb-3 block">Characters in Shot</label>
-                          <div className="space-y-3">
-                            {characters.map(character => (
-                              <label key={character.id} className="flex items-center gap-3">
-                                <input 
-                                  type="checkbox" 
-                                  checked={shot.characters.includes(character.name)}
-                                  className="rounded border-border w-4 h-4"
-                                />
-                                <span className="text-base">{character.name}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm text-muted-foreground mb-3 block">Setting</label>
-                          <select className="w-full p-3 rounded-md bg-input-background border border-border text-base">
-                            {settings.map(setting => (
-                              <option key={setting.id} value={setting.name} selected={shot.setting === setting.name}>
-                                {setting.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        <Button className="w-full bg-primary hover:bg-primary/80 py-3">
-                          <Wand2 className="w-4 h-4 mr-2" />
-                          Regenerate Shot
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
           </div>
 
           {/* Side Panel with Tabs */}
@@ -474,14 +416,26 @@ export function SceneStoryboard({ scene, onBack }: SceneStoryboardProps) {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         placeholder="Describe the overall scene..."
-                        className="min-h-[120px] bg-input-background border-border"
+                        className="min-h-[120px]"
+                        style={{ backgroundColor: 'var(--game-soft-white)', border: '2px solid var(--game-light-gray)', color: 'var(--game-charcoal)' }}
                       />
                       <div className="flex gap-2">
                         <Button 
                           size="sm" 
                           onClick={handleRegenerate}
                           disabled={isRegenerating}
-                          className="bg-primary hover:bg-primary/80"
+                          className="transition-all"
+                          style={{ backgroundColor: 'var(--game-orange)', color: 'var(--game-soft-white)', border: '2px solid var(--game-orange)' }}
+                          onMouseEnter={(e) => {
+                            if (!isRegenerating) {
+                              e.currentTarget.style.backgroundColor = 'rgba(246, 183, 142, 0.8)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isRegenerating) {
+                              e.currentTarget.style.backgroundColor = 'var(--game-orange)';
+                            }
+                          }}
                         >
                           Apply Changes
                         </Button>

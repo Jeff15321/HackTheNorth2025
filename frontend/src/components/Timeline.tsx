@@ -36,14 +36,17 @@ const Timeline: React.FC<TimelineProps> = ({ timeline }) => {
   };
 
   return (
-    <div className="h-screen bg-black text-white overflow-hidden">
+    <div className="h-screen overflow-hidden font-game" style={{ backgroundColor: 'var(--game-charcoal)', color: 'var(--game-soft-white)' }}>
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm p-4">
+      <div className="absolute top-0 left-0 right-0 z-10 backdrop-blur-sm p-4" style={{ backgroundColor: 'rgba(74, 74, 74, 0.5)' }}>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-medium">{timeline.title}</h1>
           <button
             onClick={() => router.push('/')}
-            className="text-white/60 hover:text-white text-sm"
+            className="text-sm transition-colors"
+            style={{ color: 'var(--game-light-gray)' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--game-soft-white)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--game-light-gray)'}
           >
             ← Back to Home
           </button>
@@ -70,10 +73,10 @@ const Timeline: React.FC<TimelineProps> = ({ timeline }) => {
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                <div className="absolute inset-0 transition-colors" style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }} />
                 <div className="absolute bottom-4 left-4 right-4">
-                  <h3 className="text-white font-medium text-sm">{scene.title}</h3>
-                  <p className="text-white/80 text-xs mt-1">{formatTime(scene.duration)}</p>
+                  <h3 className="font-medium text-sm" style={{ color: 'var(--game-soft-white)' }}>{scene.title}</h3>
+                  <p className="text-xs mt-1" style={{ color: 'var(--game-light-gray)' }}>{formatTime(scene.duration)}</p>
                 </div>
               </div>
             </div>
@@ -83,17 +86,20 @@ const Timeline: React.FC<TimelineProps> = ({ timeline }) => {
 
       {/* Storyboard Overlay */}
       {selectedScene && (
-        <div className="fixed inset-0 bg-black/95 z-50 flex">
+        <div className="fixed inset-0 z-50 flex" style={{ backgroundColor: 'rgba(74, 74, 74, 0.95)' }}>
           {/* Storyboard Images */}
           <div className="flex-1 p-8 overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-medium">{selectedScene.storyboard.title}</h2>
+              <h2 className="text-2xl font-medium" style={{ color: 'var(--game-soft-white)' }}>{selectedScene.storyboard.title}</h2>
               <button
                 onClick={() => {
                   setSelectedScene(null);
                   router.push('/timeline');
                 }}
-                className="text-white/60 hover:text-white text-2xl"
+                className="text-2xl transition-colors"
+                style={{ color: 'var(--game-light-gray)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--game-soft-white)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--game-light-gray)'}
               >
                 ×
               </button>
@@ -108,7 +114,7 @@ const Timeline: React.FC<TimelineProps> = ({ timeline }) => {
                     className="object-cover"
                   />
                   <div className="absolute bottom-2 left-2 right-2">
-                    <p className="text-white text-sm bg-black/50 backdrop-blur-sm rounded px-2 py-1">
+                    <p className="text-sm backdrop-blur-sm rounded px-2 py-1" style={{ color: 'var(--game-soft-white)', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
                       {frame.description}
                     </p>
                   </div>
@@ -118,27 +124,27 @@ const Timeline: React.FC<TimelineProps> = ({ timeline }) => {
           </div>
 
           {/* Dialogue Panel */}
-          <div className="w-96 border-l border-gray-800 bg-gray-900/50 p-6 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-white mb-4">Dialogues</h3>
+          <div className="w-96 border-l p-6 overflow-y-auto" style={{ borderColor: 'var(--game-light-gray)', backgroundColor: 'rgba(74, 74, 74, 0.5)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--game-soft-white)' }}>Dialogues</h3>
             <div className="space-y-4">
               {selectedScene.storyboard.dialogues.map((dialogue) => (
                 <div
                   key={dialogue.id}
-                  className={`p-4 rounded-lg border transition-colors ${
-                    getDialoguesForTime(currentTime).some(d => d.id === dialogue.id)
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-gray-700 bg-gray-800/50'
-                  }`}
+                  className="p-4 rounded-lg border transition-colors"
+                  style={{
+                    borderColor: getDialoguesForTime(currentTime).some(d => d.id === dialogue.id) ? 'var(--game-orange)' : 'var(--game-light-gray)',
+                    backgroundColor: getDialoguesForTime(currentTime).some(d => d.id === dialogue.id) ? 'rgba(246, 183, 142, 0.1)' : 'rgba(74, 74, 74, 0.5)'
+                  }}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-blue-400">{dialogue.character}</span>
-                    <span className="text-xs text-gray-500 font-mono">
+                    <span className="font-medium" style={{ color: 'var(--game-orange)' }}>{dialogue.character}</span>
+                    <span className="text-xs font-mono" style={{ color: 'var(--game-dark-gray)' }}>
                       {formatTime(dialogue.timestamp)}
                     </span>
                   </div>
-                  <p className="text-gray-300 text-sm">{dialogue.text}</p>
+                  <p className="text-sm" style={{ color: 'var(--game-light-gray)' }}>{dialogue.text}</p>
                   {dialogue.emotion && (
-                    <span className="inline-block mt-2 px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">
+                    <span className="inline-block mt-2 px-2 py-1 text-xs rounded" style={{ backgroundColor: 'var(--game-dark-gray)', color: 'var(--game-light-gray)' }}>
                       {dialogue.emotion}
                     </span>
                   )}
@@ -147,20 +153,23 @@ const Timeline: React.FC<TimelineProps> = ({ timeline }) => {
             </div>
 
             {/* Timeline Controls */}
-            <div className="mt-8 pt-6 border-t border-gray-700">
-              <h4 className="text-sm font-medium text-gray-400 mb-3">Timeline</h4>
+            <div className="mt-8 pt-6 border-t" style={{ borderColor: 'var(--game-light-gray)' }}>
+              <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--game-light-gray)' }}>Timeline</h4>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs" style={{ color: 'var(--game-dark-gray)' }}>
                   <span>0:00</span>
                   <span>{formatTime(selectedScene.storyboard.totalDuration)}</span>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
+                <div className="w-full rounded-full h-2" style={{ backgroundColor: 'var(--game-dark-gray)' }}>
                   <div 
-                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(currentTime / selectedScene.storyboard.totalDuration) * 100}%` }}
+                    className="h-2 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${(currentTime / selectedScene.storyboard.totalDuration) * 100}%`,
+                      backgroundColor: 'var(--game-orange)'
+                    }}
                   />
                 </div>
-                <div className="text-center text-sm text-gray-400">
+                <div className="text-center text-sm" style={{ color: 'var(--game-light-gray)' }}>
                   {formatTime(currentTime)}
                 </div>
               </div>

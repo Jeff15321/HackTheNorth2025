@@ -8,6 +8,10 @@ import { useSceneStore } from "@/store/useSceneStore";
 import PagesOverlay from "@/components/pages/PagesOverlay";
 import { getCharacters } from "@/data/sceneData";
 import ModelSwitcherPanel from "@/components/pages/ModelSwitcherPanel";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, Settings, CheckCircle } from "lucide-react";
 import * as THREE from "three";
 import { useBackendStore } from "@/store/backendStore";
 import { useCreateProject } from "@/hooks/useCreateProject";
@@ -157,23 +161,108 @@ export default function Home() {
             )}
           </Scene3D>
 
-          {/* Top-left progress bar and navigation */}
-          <div style={{ position: "fixed", top: 12, left: 12, zIndex: 50, display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 200, height: 10, background: "rgba(255,255,255,0.6)", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)" }}>
-              <div style={{ width: `${pct}%`, height: "100%", background: "#10B981" }} />
-            </div>
-            <span style={{ color: "#111", fontSize: 12 }}>{done}/{total}</span>
-            <button onClick={goPrev} className="px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white">Prev</button>
-            <button onClick={goNext} className={`px-2 py-1 rounded bg-white/90 text-gray-900 shadow hover:bg-white ${nextIsComplete ? "animate-pulse" : ""}`}>Next</button>
-          </div>
-
-          {/* Toggle Button - fixed bottom-left */}
-          <button
-            onClick={() => setPanelOpen((v) => !v)}
-            className="fixed left-4 bottom-4 z-50 px-4 py-2 rounded-lg bg-white/90 text-gray-900 shadow hover:bg-white"
+        {/* Bottom center progress bar and navigation - Duolingo style */}
+        {!selectedPageId && (
+          <div
+            className="font-game fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50
+                       flex items-center gap-4
+                       rounded-2xl px-6 py-3 shadow-2xl"
+            style={{
+              backgroundColor: 'var(--game-cream)',
+              border: '2px solid var(--game-light-gray)',
+              minWidth: '400px'
+            }}
           >
-            {panelOpen ? "Close Panel" : "Open Panel"}
-          </button>
+            {/* Progress section */}
+            <div className="flex items-center gap-3">
+              <Badge 
+                variant="secondary" 
+                className="font-game border-0 px-3 py-1 text-sm"
+                style={{ backgroundColor: 'var(--game-orange)', color: 'var(--game-soft-white)' }}
+              >
+                <CheckCircle className="w-3 h-3 mr-1" />
+                {done}/{total}
+              </Badge>
+              <Progress 
+                value={pct} 
+                className="w-24 h-2"
+              />
+            </div>
+            
+            {/* Navigation buttons */}
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={goPrev}
+                variant="outline"
+                size="sm"
+                className="font-game rounded-xl px-3 py-2 text-sm"
+                style={{ 
+                  backgroundColor: 'var(--game-soft-white)', 
+                  color: 'var(--game-charcoal)', 
+                  border: '2px solid var(--game-light-gray)' 
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--game-orange)';
+                  e.currentTarget.style.color = 'var(--game-soft-white)';
+                  e.currentTarget.style.borderColor = 'var(--game-orange)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--game-soft-white)';
+                  e.currentTarget.style.color = 'var(--game-charcoal)';
+                  e.currentTarget.style.borderColor = 'var(--game-light-gray)';
+                }}
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Prev
+              </Button>
+              <Button
+                onClick={goNext}
+                variant={nextIsComplete ? "default" : "outline"}
+                size="sm"
+                className="font-game border-2 rounded-xl px-3 py-2 text-sm"
+                style={{
+                  backgroundColor: nextIsComplete ? 'var(--game-orange)' : 'var(--game-soft-white)',
+                  color: nextIsComplete ? 'var(--game-soft-white)' : 'var(--game-charcoal)',
+                  borderColor: nextIsComplete ? 'var(--game-orange)' : 'var(--game-light-gray)',
+                  animation: nextIsComplete ? 'pulse 2s infinite' : 'none'
+                }}
+                onMouseEnter={(e) => {
+                  if (!nextIsComplete) {
+                    e.currentTarget.style.backgroundColor = 'var(--game-orange)';
+                    e.currentTarget.style.color = 'var(--game-soft-white)';
+                    e.currentTarget.style.borderColor = 'var(--game-orange)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!nextIsComplete) {
+                    e.currentTarget.style.backgroundColor = 'var(--game-soft-white)';
+                    e.currentTarget.style.color = 'var(--game-charcoal)';
+                    e.currentTarget.style.borderColor = 'var(--game-light-gray)';
+                  }
+                }}
+              >
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Panel Toggle - fixed bottom-left */}
+        <Button
+          onClick={() => setPanelOpen((v) => !v)}
+          variant="outline"
+          className="font-game fixed left-6 bottom-6 z-50 rounded-2xl px-6 py-3 shadow-2xl transition-all duration-200"
+          style={{ 
+            backgroundColor: 'var(--game-cream)', 
+            color: 'var(--game-charcoal)', 
+            border: '2px solid var(--game-light-gray)' 
+          }}
+        >
+          <Settings className="w-4 h-4 mr-2" />
+          {panelOpen ? "Close Settings" : "Open Settings"}
+        </Button>
+        
 
           <ModelSwitcherPanel
             isOpen={panelOpen}
