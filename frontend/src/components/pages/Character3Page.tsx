@@ -7,6 +7,7 @@ import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
 import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData, setEntryLoading, initializeAllLoadingFalse, GalleryCategory } from "@/data/characterData";
 import { sendImageWithScribbles } from "@/lib/imageAgent";
 import LoadingClapBoard from "../common/loading_clap_board";
+import { useBackendStore } from "@/store/backendStore";
 
 export default function Character3Page() {
   const reset = useSceneStore((s) => s.resetSelectionAndCamera);
@@ -25,6 +26,7 @@ export default function Character3Page() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [version, setVersion] = useState(0);
   const current = hasEntries ? (entries[index] ?? entries[0]) : undefined;
+  const projectId = useBackendStore((s) => s.projectId);
 
   useEffect(() => {
     initializeAllLoadingFalse();
@@ -51,11 +53,16 @@ export default function Character3Page() {
   async function handleSubmitCurrent() {
     const prompt = input.trim();
     if (!prompt) return;
+    if (!projectId) {
+      console.error("Project ID is not set. Please create/select a project first.");
+      return;
+    }
     setInput("");
     const payload = {
       prompt,
       imageSrc: current?.image || "",
       lines: scribblesByIndex[index] || [],
+      projectId,
     };
     setIsProcessing(true);
     setEntryLoading(activeTab, index, true);
