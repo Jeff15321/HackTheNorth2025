@@ -79,11 +79,11 @@ export default function Home() {
   const pct = (done / total) * 100;
   const displayIndex = (focusedModelIndex ?? currentIndex);
   const nextIsComplete = !!completed[instances[displayIndex]?.pageId];
-  const backgroundUrl = focusedModelIndex !== null ? (instances as any)[focusedModelIndex]?.background_path : undefined;
+  const backgroundUrl = (instances as any)[displayIndex]?.background_path;
   return (
     <div className="min-h-screen w-full">
       <div className="h-screen w-full relative">
-        <Scene3D backgroundUrl={"/background/background1.png"}>
+        <Scene3D backgroundUrl={backgroundUrl}>
           <CameraRig target={cameraTarget ?? undefined} zOffset={6} idlePosition={idleCameraPos} />
           {focusedModelIndex === null ? (
             <Hero3D
@@ -136,9 +136,14 @@ export default function Home() {
           isOpen={panelOpen}
           onClose={() => setPanelOpen(false)}
           onSelectIndex={(idx) => { closePage(); clearFocus(); setCurrentIndex(idx); }}
-          onShowAll={() => clearFocus()}
           buttonLabels={instances.map((_, idx) => `Show Character ${idx + 1}`)}
-        />
+          pinPositions={
+            [
+            { top: 0.6, left: 0.30, label: "Script Writer" },
+            { top: 0.35, left: 0.50, label: "Character Creator" },
+            { top: 0.60, left: 0.68,label: "Music Composer" },
+          ]}
+          pinColors={["#499163FF", "#CD903BFF", "#A78BFA"]}        />
 
         {/* Six page sidebars; all mounted, visibility toggled by selectedPageId */}
         <PagesOverlay />
