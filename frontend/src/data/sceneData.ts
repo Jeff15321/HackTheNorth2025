@@ -19,7 +19,7 @@ export function getCharacters(spacing: number): CharacterDef[] {
     },
     {
       background_path: "/background/background2.png",
-      glb_path: "/glb/character1.glb", 
+      glb_path: "/glb/character2.glb", 
       xRotationLock: 0.1,
       position: [4, -1.5, -10], 
       label: "character_3", 
@@ -27,7 +27,7 @@ export function getCharacters(spacing: number): CharacterDef[] {
     },
     { 
       background_path: "/background/background3.png", 
-      glb_path: "/glb/character1.glb", 
+      glb_path: "/glb/character3.glb", 
       xRotationLock: 0.1,
       position: [-0.5, -1.5, -10], 
       label: "character_4", 

@@ -6,7 +6,7 @@ import { themeCharacter1, colors } from "@/styles/colors";
 import ScribbleEditor, { ScribbleLine } from "@/components/ScribbleEditor";
 import { getScribblesForImage, setScribblesForImage, getCurrentCharacterGallaryIndex, setCurrentCharacterGallaryIndex, characterGallaryData, updateCharacterGalleryData, setEntryLoading, initializeAllLoadingFalse, GalleryCategory } from "@/data/characterData";
 import { sendImageWithScribbles } from "@/lib/imageAgent";
-import LoadingClapBoard from "../common/loading_clap_board";
+import LoadingClapBoard from "../common/ClapboardLoading3D";
 import { useBackendStore } from "@/store/backendStore";
 
 export default function Character3Page() {

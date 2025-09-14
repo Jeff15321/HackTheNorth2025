@@ -6,7 +6,7 @@ import { themeCharacter1, colors } from "@/styles/colors";
 import Typewriter from "@/components/common/Typewriter";
 import { talkToScriptAgent } from "@/lib/agentApi";
 import { scriptStore, setScriptDataValue, setShouldAnimateScriptData } from "@/data/scriptData";
-import LoadingClapBoard from "../common/loading_clap_board";
+import LoadingClapBoard from "../common/ClapboardLoading3D";
 
 // Hoist memoization so the component type stays stable between renders
 

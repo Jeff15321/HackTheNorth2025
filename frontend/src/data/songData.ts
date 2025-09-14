@@ -14,11 +14,13 @@ export type SongCategory = {
 
 export const songCategories: SongCategory[] = [
   {
-    id: "sci-fi",
-    name: "Sci‑Fi",
+    id: "top-loved",
+    name: "Top Loved",
     songs: [
-      { id: "sf-1", file: "/songs/song1.mp3", title: "Orbit Drift", author: "A. Nova", duration: "02:14" },
-      { id: "sf-2", file: "/songs/song1.mp3", title: "Neon Comet", author: "R. Pulse", duration: "03:01" },
+      { id: "sf-1", file: "/songs/song1.mp3", title: "Careless Whisper", author: "A. Nova", duration: "02:14" },
+      { id: "sf-2", file: "/songs/avengerepicsounds.mp3", title: "Avenger Epic Sounds", author: "R. Pulse", duration: "03:01" },
+      { id: "sf-3", file: "/songs/slowtrap.mp3", title: "Slow Track Sounds", author: "R. Pulse", duration: "03:01" },
+
     ],
   },
   {
