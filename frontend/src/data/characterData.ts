@@ -241,7 +241,9 @@ export function setCurrentCharacterGallaryIndex(index: number): void {
   currentIndex = index;
 }
 
-export type GalleryCategory = "characters" | "objects" | "scenes";
+// character gallery data
+
+export type GalleryCategory = "characters" | "scenes";
 
 export let characterGallaryData: Record<GalleryCategory, characterGallaryDataEntry[]> = {
   // Use assets under /public. Paths are absolute from the web root

@@ -99,7 +99,7 @@ export default function Character2Page() {
   const hasProjectWithCharacters = project?.currentProject && projectData.characters.length > 0;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
+    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[70%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
       <div className="flex w-full h-full flex-col gap-6 px-6 py-6">
         {/* Header */}
         <div className="flex items-center justify-between">

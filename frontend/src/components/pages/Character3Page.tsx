@@ -307,7 +307,7 @@ export default function Character3Page() {
   }, []);
 
   return (
-    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
+    <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[70%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
       <div className="flex h-full w-full flex-col gap-4 px-6 py-6">
         {/* Header */}
         <div className="flex items-center justify-between h-9">
