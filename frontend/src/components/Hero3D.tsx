@@ -48,9 +48,10 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
     const maxTilt = Math.PI / 6; // 30deg
     const targetX = -mouse.y * maxTilt;
     let targetY = mouse.x * maxTilt;
-    targetRotation.current.set( targetX, zoomActive ? targetY + 1.5  : targetY, 0);
-    const baseScale = zoomActive ? 0.7 : 1; // shrink when focused (zoomActive)
-    targetScale.current = hovered ? baseScale * 1.35 : baseScale;
+    targetRotation.current.set( targetX, zoomActive ? targetY + 1.2  : targetY, 0);
+    const baseScale = zoomActive ? 0.5 : 1.5; // shrink when focused (zoomActive)
+    const hoverActive = !zoomActive && hovered;
+    targetScale.current = hoverActive ? baseScale * 1.35 : baseScale;
 
     if (groupRef.current) {
       groupRef.current.rotation.x = THREE.MathUtils.damp(
@@ -77,7 +78,7 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
   });
   // Compute declarative position with x-shift based on zoomActive
   const adjustedPosition = useMemo(() => {
-    const shift = zoomActive ? -4.8 : 0;
+    const shift = zoomActive ? -1.75 : 0;
     return [position[0] + shift, position[1], position[2]] as [number, number, number];
   }, [position, zoomActive]);
 
@@ -89,11 +90,11 @@ export default function Hero3D({ bodyColor = "#34D399", position = [0, 0, 0], in
       receiveShadow
       onPointerOver={(e) => {
         e.stopPropagation();
-        setHovered(true);
+        if (!zoomActive) setHovered(true);
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
-        setHovered(false);
+        if (!zoomActive) setHovered(false);
       }}
       onClick={(e) => {
         e.stopPropagation();

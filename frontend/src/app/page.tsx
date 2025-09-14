@@ -78,10 +78,11 @@ export default function Home() {
   const pct = (done / total) * 100;
   const displayIndex = (focusedModelIndex ?? currentIndex);
   const nextIsComplete = !!completed[instances[displayIndex]?.pageId];
+  const backgroundUrl = focusedModelIndex !== null ? (instances as any)[focusedModelIndex]?.background_path : undefined;
   return (
     <div className="min-h-screen w-full">
       <div className="h-screen w-full relative">
-        <Scene3D>
+        <Scene3D backgroundUrl={"/background/background1.png"}>
           <CameraRig target={cameraTarget ?? undefined} zOffset={6} idlePosition={idleCameraPos} />
           {focusedModelIndex === null ? (
             <Hero3D

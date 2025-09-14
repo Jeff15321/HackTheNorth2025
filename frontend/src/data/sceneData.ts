@@ -3,13 +3,36 @@ export type CharacterDef = {
   pageId: string;
   position: [number, number, number];
   glb_path?: string;
+  background_path?: string;
+  xRotationLock?: number;
 };
 
 export function getCharacters(spacing: number): CharacterDef[] {
   return [
-    { glb_path: "/glb/character1.glb", position: [0, 0, 0], label: "character_2", pageId: "character_2" },
-    { glb_path: "/glb/character1.glb", position: [spacing, 0, 0], label: "character_3", pageId: "character_3" },
-    { glb_path: "/glb/character1.glb", position: [-spacing, 0, 0],  label: "character_4", pageId: "character_4" },
+    {
+      background_path: "/background/background1.png",
+      glb_path: "/glb/character1.glb",
+      xRotationLock: -0.1,
+      position: [0, -1, -10],
+      label: "character_2",
+      pageId: "character_2"
+    },
+    {
+      background_path: "/background/background1.png",
+      glb_path: "/glb/character1.glb", 
+      xRotationLock: -0.1,
+      position: [0, 1, -10], 
+      label: "character_3", 
+      pageId: "character_3"
+    },
+    { 
+      background_path: "/background/background1.png", 
+      glb_path: "/glb/character1.glb", 
+      xRotationLock: -0.1,
+      position: [1, 0, -10], 
+      label: "character_4", 
+      pageId: "character_4" 
+    },
   ];
 }
 
