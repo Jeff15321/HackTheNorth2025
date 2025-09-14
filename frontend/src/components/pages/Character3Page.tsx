@@ -99,7 +99,7 @@ export default function Character3Page() {
     <div className="fixed inset-y-0 right-0 z-10 flex min-h-screen w-[80%] items-stretch bg-gradient-to-b from-[#0e1b1d] to-[#102629] border-l border-white/10 shadow-[-12px_0_24px_rgba(0,0,0,0.25)]">
       <div className="flex h-full w-full flex-col gap-4 px-6 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between h-9">
           <div className="flex items-center gap-3">
             <h2 className="font-feather text-[24px] text-white/95">Visual Designer</h2>
             <span className="text-white/40">{hasEntries ? `${index + 1}/${entries.length}` : "0/0"}</span>
@@ -195,7 +195,14 @@ export default function Character3Page() {
                 }}
                 className="min-h-24"
               />
-              <div className="mt-3 flex items-center justify-end">
+              <div className="mt-3 flex justify-end gap-2">
+                <DuoButton
+                  size="md"
+                  className="bg-[#8b5cf6] text-white shadow-[0_6px_0_#6e46d9] hover:brightness-105"
+                  onClick={() => window.location.href = '/timeline'}
+                >
+                  Generate Video
+                </DuoButton>
                 <DuoButton size="md" onClick={handleSubmitCurrent} disabled={isProcessing || !input.trim()}>
                   Apply changes
                 </DuoButton>

@@ -98,24 +98,25 @@ export default function Character4Page() {
 
         {/* Composer */}
         <div className="flex-[1] min-h-[18vh] rounded-[28px] border border-white/10 bg-white/5 p-5">
-          <div className="flex h-full flex-col gap-4 overflow-hidden">
-            <DuoTextArea
-              label="Director note"
-              placeholder="e.g. Increase tension in act two, emphasize rivalry, add a quieter beat…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              containerClassName="flex-1"
-              className="h-full min-h-[120px] resize-none"
-            />
-            <div className="mt-2 flex items-center justify-end">
+          <div className="flex h-full flex-col gap-3 overflow-hidden">
+            <div className="flex items-end gap-3">
+              <DuoTextArea
+                label="Director note"
+                placeholder="e.g. Increase tension in act two, emphasize rivalry, add a quieter beat…"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                rows={2}
+                containerClassName="flex-1"
+                className="h-[72px] min-h-[72px] max-h-[72px] resize-none overflow-auto"
+              />
               <DuoButton size="md" onClick={handleSend} disabled={!input.trim() || sending}>
-                Generate
+                Submit
               </DuoButton>
             </div>
           </div>
