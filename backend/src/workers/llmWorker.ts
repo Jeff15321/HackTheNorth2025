@@ -1,7 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { generateText, generateJSON, generateScript, parseReferencedIds } from '../ai/gemini.js';
 import { SchemaType, type Schema } from '@google/generative-ai';
-import { createScene, createFrame, getCharactersByProject } from '../utils/database.js';
+import { createScene, getCharactersByProject } from '../utils/database.js';
 import { updateJobStatus, addJob, queueConnection } from '../utils/queue.js';
 import { buildSceneContext, buildFrameContext, formatContextForPrompt } from '../utils/context.js';
 
@@ -56,7 +56,7 @@ export function createLLMWorker() {
   );
 
   const sceneWorker = new Worker(
-    'scene-generation',
+    'scene-script-generation',
     async (job: Job) => {
       return processSceneGeneration(job);
     },
@@ -68,22 +68,89 @@ export function createLLMWorker() {
     async (job: Job) => {
       return processFrameGeneration(job);
     },
-    { connection, concurrency: 5 }
+    { connection, concurrency: 8 }
   );
 
   console.log('🤖 LLM workers created');
   return { llmWorker, sceneWorker, frameWorker };
 }
 
+async function enhanceScript(base_plot: string, characters_context: any[], target_scenes: number = 3) {
+  const charactersInfo = characters_context.map(char =>
+    `${char.metadata?.name || char.name || 'Unknown'}: ${char.metadata?.description || char.description || 'No description'}`
+  ).join('\n');
+
+  // Default frame structure: 3-2-3 frames per scene
+  const frameStructure = [3, 2, 3];
+  const totalDuration = frameStructure.reduce((sum, frames) => sum + (frames * 8), 0); // 64 seconds total
+
+  const prompt = `Base plot: ${base_plot}
+
+Characters:
+${charactersInfo}
+
+Please enhance this plot into a detailed script with exactly ${target_scenes} scenes.
+
+IMPORTANT FRAME STRUCTURE:
+- Scene 1: 3 frames (24 seconds total - each frame is 8 seconds)
+- Scene 2: 2 frames (16 seconds total - each frame is 8 seconds)
+- Scene 3: 3 frames (24 seconds total - each frame is 8 seconds)
+- Total film duration: 64 seconds
+
+Each frame represents 8 seconds of video content, so plan the pacing accordingly.
+
+Return a JSON object with:
+- enhanced_plot: The enhanced plot with more detail and better pacing for ${totalDuration} seconds
+- scene_breakdowns: Array of ${target_scenes} objects with:
+  - scene_order: Number (1, 2, 3...)
+  - scene_description: Detailed description for the entire scene
+  - target_frames: Number of frames (${frameStructure.join(', ')} respectively)
+  - duration: Total scene duration in seconds (frames × 8)`;
+
+  const systemPrompt = 'You are a professional screenwriter specializing in short-form video content. Create detailed scripts with proper pacing for video generation. Remember: each frame = 8 seconds of video content. Focus on visual storytelling and clear scene progression.';
+
+  console.log('🔍 About to call generateText with:', {
+    promptLength: prompt?.length,
+    systemPromptLength: systemPrompt?.length,
+    promptPreview: prompt?.substring(0, 100) + '...'
+  });
+
+  
+  if (!prompt || prompt.trim().length === 0) {
+    throw new Error('Generated prompt is empty or undefined');
+  }
+
+  const result = await generateText(prompt, systemPrompt);
+
+  try {
+    return JSON.parse(result);
+  } catch {
+    return {
+      enhanced_plot: result,
+      scene_breakdowns: [
+        { scene_order: 1, scene_description: "Opening scene", target_frames: 3, duration: 24 },
+        { scene_order: 2, scene_description: "Middle scene", target_frames: 2, duration: 16 },
+        { scene_order: 3, scene_description: "Closing scene", target_frames: 3, duration: 24 }
+      ]
+    };
+  }
+}
+
 async function processLLMJob(job: Job) {
   const { project_id, input_data, type: jobType } = job.data;
   
-  const jobTypeDetermined = jobType || input_data.type;
-  
+  const jobTypeDetermined = input_data.type || jobType;
+
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
     console.log(`🤖 Processing LLM job: ${jobTypeDetermined}`);
+    console.log(`🔍 Debug job data:`, {
+      jobType,
+      input_data_type: input_data.type,
+      input_data_keys: Object.keys(input_data),
+      jobTypeDetermined
+    });
 
     let result: any;
 
@@ -92,9 +159,14 @@ async function processLLMJob(job: Job) {
         const { prompt: scriptPrompt, context: scriptContext } = input_data;
         result = await generateProjectScript(project_id, scriptPrompt, scriptContext);
         break;
-      case 'character':
-        const { prompt: charPrompt, context: charContext } = input_data;
-        result = await generateProjectCharacter(project_id, charPrompt, charContext);
+      case 'script-enhancement':
+        const { base_plot, characters_context, target_scenes } = input_data;
+        console.log('🔍 Script enhancement input:', { base_plot, characters_context, target_scenes });
+
+        if (!base_plot) throw new Error('base_plot is required for script enhancement');
+        if (!characters_context) throw new Error('characters_context is required for script enhancement');
+
+        result = await enhanceScript(base_plot, characters_context, target_scenes || 3);
         break;
       case 'plot':
         const { prompt: plotPrompt, context: plotContext } = input_data;
@@ -170,31 +242,18 @@ Generate a scene that:
 
     await updateJobStatus(job.id!, 'processing', 70);
 
-    const scene = await createScene({
-      project_id,
-      metadata: {
-        detailed_plot: sceneData.detailed_plot,
-        concise_plot: sceneData.concise_plot,
-        dialogue: sceneData.dialogue,
-        scene_order: 0
-      }
-    });
-
     await updateJobStatus(job.id!, 'processing', 85);
 
-    await triggerFrameGeneration(project_id, scene.id, sceneData, contextData);
-
     const result = {
-      scene_id: scene.id,
       scene_data: sceneData,
-      frames_triggered: true,
+      llm_generation_complete: true,
       context_tokens_available: {
         characters: characterTokens,
         objects: objectTokens
       }
     };
 
-    console.log(`🎬 [SCENE GENERATION] Scene generated: ${scene.id}`);
+    console.log(`🎬 [SCENE GENERATION] LLM scene script generated`);
     return result;
   } catch (error) {
     console.error(`Scene generation failed for job ${job.id}:`, error);
@@ -204,7 +263,7 @@ Generate a scene that:
 
 async function processFrameGeneration(job: Job) {
   const { project_id, input_data } = job.data;
-  const { scene_id, scene_metadata, frame_index, scene_context } = input_data;
+  const { scene_id, scene_metadata, frame_index } = input_data;
 
   try {
     await updateJobStatus(job.id!, 'processing', 10);
@@ -258,26 +317,10 @@ Also provide:
 
     await updateJobStatus(job.id!, 'processing', 70);
 
-    const frame = await createFrame({
-      project_id,
-      scene_id,
-      metadata: {
-        veo3_prompt: frameData.veo3_prompt,
-        dialogue: frameData.dialogue,
-        summary: frameData.summary,
-        split_reason: frameData.split_reason,
-        frame_order: 0
-      }
-    });
-
     await updateJobStatus(job.id!, 'processing', 85);
 
-    await triggerVideoGeneration(project_id, frame.id, frameData);
-
     const result = {
-      frame_id: frame.id,
       frame_data: frameData,
-      video_triggered: true,
       referenced_ids: { characterIds, objectIds },
       context_entities_used: {
         characters: referencedCharacters.length,
@@ -285,7 +328,7 @@ Also provide:
       }
     };
 
-    console.log(`🎬 [FRAME GENERATION] Frame generated: ${frame.id}`);
+    console.log(`🎬 [FRAME GENERATION] Frame metadata generated`);
     return result;
   } catch (error) {
     console.error(`Frame generation failed for job ${job.id}:`, error);
@@ -305,12 +348,6 @@ async function generateProjectScript(projectId: string, plot: string, context: a
     characters: characterNames,
     project_id: projectId
   };
-}
-
-async function generateProjectCharacter(projectId: string, characterPrompt: string, context: any) {
-  // Character generation is now handled by the image worker
-  // This function is kept for backward compatibility but should not be used
-  throw new Error('Character generation should be handled by the character-generation worker, not LLM worker');
 }
 
 async function generatePlotOutline(prompt: string, context: any) {

@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Film Studio - 4-Tab Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #1a1a1a;
+            border-right: 1px solid #333;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tabs {
+            display: flex;
+            background: #1a1a1a;
+            border-bottom: 1px solid #333;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: #ccc;
+            font-size: 14px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: #fff;
+            background: #2a2a2a;
+        }
+
+        .tab.active {
+            color: #00d4ff;
+            border-bottom-color: #00d4ff;
+            background: #0f1419;
+        }
+
+        .tab-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #444;
+            border-radius: 6px;
+            background: #2a2a2a;
+            color: #e0e0e0;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #00b8e6;
+        }
+
+        button:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        .character-grid {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            padding: 10px 0;
+        }
+
+        .character-card {
+            min-width: 280px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .character-image {
+            width: 100%;
+            height: 200px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+
+        .scene-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .scene-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .scene-card:hover {
+            border-color: #00d4ff;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            width: 80%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            color: #ccc;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #fff;
+        }
+
+        .frames-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .frame-card {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .log-entry {
+            background: #2a2a2a;
+            border-left: 3px solid #00d4ff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 0 4px 4px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-timestamp {
+            color: #666;
+            font-size: 11px;
+        }
+
+        .director-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .message.user {
+            background: #2a2a2a;
+            text-align: right;
+        }
+
+        .message.director {
+            background: #1a3a3a;
+        }
+
+        .status-indicator {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-completed { background: #1a4a1a; color: #4ade80; }
+        .status-generating { background: #4a4a1a; color: #fbbf24; }
+        .status-ready { background: #1a1a4a; color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3>Real-Time Events</h3>
+        <div>
+            <div id="projectInfo" style="display: none;">
+                <label>Current Project:</label>
+                <div style="font-family: monospace; font-size: 12px; color: #00d4ff; margin-bottom: 10px;" id="currentProjectDisplay"></div>
+            </div>
+            <button onclick="startNewProject()" id="startProjectBtn" style="width: 100%; margin-top: 10px;">Start New Project</button>
+        </div>
+        <div id="eventLog" style="margin-top: 20px; max-height: calc(100vh - 200px); overflow-y: auto;"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab(0)">Director</button>
+            <button class="tab" onclick="switchTab(1)">Scriptwriter</button>
+            <button class="tab" onclick="switchTab(2)">Characters</button>
+            <button class="tab" onclick="switchTab(3)">Scenes</button>
+        </div>
+
+        <!-- Tab 1: Director -->
+        <div class="tab-content active">
+            <h2>Director Conversation</h2>
+            <div id="noProjectMessage" style="text-align: center; color: #666; margin: 50px 0;">
+                <p>Click "Start New Project" in the sidebar to begin your film journey!</p>
+            </div>
+
+            <div id="directorInterface" style="display: none;">
+                <div class="director-messages" id="conversationHistory"></div>
+
+                <div class="input-group">
+                    <label>Your Message:</label>
+                    <textarea id="userMessage" placeholder="Tell the director about your film idea..."></textarea>
+                </div>
+                <button onclick="sendToDirector()" id="sendDirectorBtn">Send to Director</button>
+
+                <div style="margin-top: 30px;">
+                    <h3>Current Conversation Status</h3>
+                    <div id="conversationStatus">
+                        <p><strong>Plot:</strong> <span id="currentPlot">Not set</span></p>
+                        <p><strong>Characters:</strong> <span id="characterCount">0</span></p>
+                        <p><strong>Complete:</strong> <span id="isComplete">No</span></p>
+                    </div>
+                </div>
+
+                <div class="workflow-status" style="margin-top: 30px; padding: 15px; background: #1a1a1a; border-radius: 6px; border-left: 3px solid #00d4ff;">
+                    <small style="color: #999;">💡 Chat with the director about your film idea. When complete, the conversation will generate characters and be ready for script enhancement.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Scriptwriter -->
+        <div class="tab-content">
+            <h2>Script Enhancement</h2>
+            <div id="scriptNoProject" style="text-align: center; color: #666; margin: 50px 0;">
+                <p>Start a project and complete the director conversation first!</p>
+            </div>
+
+            <div id="scriptInterface" style="display: none;">
+                <div class="input-group">
+                    <label>Base Plot:</label>
+                    <textarea id="basePlot" placeholder="Enter the basic plot..."></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>Target Scenes:</label>
+                    <input type="number" id="targetScenes" value="3" min="1" max="10">
+                </div>
+
+                <button onclick="enhanceScript()" id="enhanceScriptBtn">Enhance Script</button>
+
+                <div id="scriptResult" style="margin-top: 20px;"></div>
+
+                <div class="workflow-status" style="margin-top: 30px; padding: 15px; background: #1a1a1a; border-radius: 6px; border-left: 3px solid #00d4ff;">
+                    <small style="color: #999;">💡 This will create 3 scenes: Scene 1 (3 frames = 24s), Scene 2 (2 frames = 16s), Scene 3 (3 frames = 24s). Total: 64 seconds. Each frame = 8 seconds of video.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Characters -->
+        <div class="tab-content">
+            <h2>Character Gallery</h2>
+            <div id="charactersNoProject" style="text-align: center; color: #666; margin: 50px 0;">
+                <p>Start a project to view generated characters!</p>
+            </div>
+
+            <div id="charactersInterface" style="display: none;">
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button onclick="loadCharacters()">Refresh Characters</button>
+                    <button id="generateCharactersBtn" onclick="generateAllCharacters()" style="background: #10b981; color: white;">Generate All Characters</button>
+                </div>
+
+                <div style="margin-bottom: 15px; padding: 10px; background: #1a1a1a; border-radius: 6px;">
+                    <div><strong>Characters from Director:</strong> <span id="directorCharacterCount">0</span></div>
+                    <div><strong>Generated Characters:</strong> <span id="generatedCharacterCount">0</span></div>
+                </div>
+
+                <div class="character-grid" id="charactersContainer">
+                    <p>No characters loaded yet.</p>
+                </div>
+
+                <div class="workflow-status" style="margin-top: 30px; padding: 15px; background: #1a1a1a; border-radius: 6px; border-left: 3px solid #00d4ff;">
+                    <small style="color: #999;">💡 Complete the director conversation first to get characters, then use "Generate All Characters" to create images and detailed descriptions.</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Scenes -->
+        <div class="tab-content">
+            <h2>Scenes & Frames</h2>
+            <div id="scenesNoProject" style="text-align: center; color: #666; margin: 50px 0;">
+                <p>Start a project to view generated scenes!</p>
+            </div>
+
+            <div id="scenesInterface" style="display: none;">
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button onclick="loadScenes()">Refresh Scenes</button>
+                    <button id="generateScenesBtn" onclick="generateAllScenes()" style="background: #8b5cf6; color: white;">Generate All Scenes</button>
+                </div>
+
+                <div style="margin-bottom: 15px; padding: 10px; background: #1a1a1a; border-radius: 6px;">
+                    <div><strong>Scenes in Script:</strong> <span id="scriptSceneCount">0</span> (3-2-3 frame structure)</div>
+                    <div><strong>Generated Scenes:</strong> <span id="generatedSceneCount">0</span></div>
+                    <div><strong>Total Frames:</strong> <span id="totalFrameCount">0</span></div>
+                </div>
+
+                <div class="scene-grid" id="scenesContainer">
+                    <p>No scenes loaded yet.</p>
+                </div>
+
+                <div class="workflow-status" style="margin-top: 30px; padding: 15px; background: #1a1a1a; border-radius: 6px; border-left: 3px solid #00d4ff;">
+                    <small style="color: #999;">💡 Use "Generate All Scenes" after script enhancement to create scenes, objects, and frames. This will trigger the full production pipeline.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for scene frames -->
+    <div id="sceneModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 id="modalSceneTitle">Scene Frames</h3>
+            <div id="modalSceneContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentProjectId = '';
+        let currentCharacters = [];
+        let currentScenes = [];
+        let eventSources = [];
+
+        function switchTab(index) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+            });
+
+            contents.forEach((content, i) => {
+                content.classList.toggle('active', i === index);
+            });
+        }
+
+        function addLog(type, message, data = {}) {
+            const log = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <div class="log-timestamp">${timestamp}</div>
+                <strong>${type}:</strong> ${message}
+                ${Object.keys(data).length > 0 ? `<pre style="margin-top: 5px; font-size: 11px; color: #999;">${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function startNewProject() {
+            const btn = document.getElementById('startProjectBtn');
+            btn.disabled = true;
+            btn.textContent = 'Creating Project...';
+
+            try {
+                // Create new project
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: `Film Project ${new Date().toLocaleString()}`,
+                        summary: 'Created from test interface',
+                        plot: ''
+                    })
+                });
+
+                const project = await response.json();
+                currentProjectId = project.id;
+
+                // Update UI
+                document.getElementById('currentProjectDisplay').textContent = currentProjectId;
+                document.getElementById('projectInfo').style.display = 'block';
+
+                // Show all interfaces
+                document.getElementById('noProjectMessage').style.display = 'none';
+                document.getElementById('directorInterface').style.display = 'block';
+                document.getElementById('scriptNoProject').style.display = 'none';
+                document.getElementById('scriptInterface').style.display = 'block';
+                document.getElementById('charactersNoProject').style.display = 'none';
+                document.getElementById('charactersInterface').style.display = 'block';
+                document.getElementById('scenesNoProject').style.display = 'none';
+                document.getElementById('scenesInterface').style.display = 'block';
+
+                // Connect to events automatically
+                connectEvents();
+
+                addLog('PROJECT', `Created new project: ${currentProjectId}`);
+                btn.textContent = 'New Project Created!';
+
+                // Auto-load initial data
+                setTimeout(() => {
+                    loadCharacters();
+                    loadScenes();
+                }, 1000);
+
+            } catch (error) {
+                alert('Error creating project: ' + error.message);
+                btn.textContent = 'Start New Project';
+            } finally {
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Start New Project';
+                }, 2000);
+            }
+        }
+
+        function connectEvents() {
+            if (!currentProjectId) {
+                addLog('ERROR', 'No project ID available');
+                return;
+            }
+
+            // Close existing connections
+            eventSources.forEach(source => source.close());
+            eventSources = [];
+
+            // Connect to all event streams
+            const streams = [
+                { url: `/api/events/project/${currentProjectId}/characters`, name: 'Characters' },
+                { url: `/api/events/project/${currentProjectId}/scenes`, name: 'Scenes' },
+                { url: `/api/events/project/${currentProjectId}/videos`, name: 'Videos' }
+            ];
+
+            streams.forEach(stream => {
+                const eventSource = new EventSource(stream.url);
+                eventSources.push(eventSource);
+
+                eventSource.onopen = () => {
+                    addLog('CONNECTION', `Connected to ${stream.name} stream`);
+                };
+
+                eventSource.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    addLog('EVENT', `${stream.name} update`, data);
+                };
+
+                eventSource.addEventListener('connected', (event) => {
+                    const data = JSON.parse(event.data);
+                    addLog('CONNECTED', `${stream.name} stream ready`, data);
+                });
+
+                eventSource.addEventListener('character_complete', (event) => {
+                    const data = JSON.parse(event.data);
+                    addLog('CHARACTER', 'Character generated', data);
+                    loadCharacters(); // Immediate reload
+                    updateCharacterCounts(); // Update counts
+                });
+
+                eventSource.addEventListener('scene_complete', (event) => {
+                    const data = JSON.parse(event.data);
+                    addLog('SCENE', 'Scene generated', data);
+                    loadScenes(); // Immediate reload
+                });
+
+                eventSource.addEventListener('batch_progress', (event) => {
+                    const data = JSON.parse(event.data);
+                    addLog('PROGRESS', `Objects: ${data.objects.completed}/${data.objects.total}, Frames: ${data.frames.completed}/${data.frames.total}`, data);
+
+                    // Update frame count display
+                    const totalFrames = data.frames.total;
+                    const completedFrames = data.frames.completed;
+                    document.getElementById('totalFrameCount').textContent = `${completedFrames}/${totalFrames}`;
+                });
+
+                eventSource.addEventListener('video_complete', (event) => {
+                    const data = JSON.parse(event.data);
+                    addLog('VIDEO', 'Video generated', data);
+                    loadScenes(); // Immediate reload
+                });
+
+                eventSource.addEventListener('project_ready', (event) => {
+                    const data = JSON.parse(event.data);
+                    addLog('PROJECT', 'Project ready for assembly!', data);
+                });
+
+                eventSource.onerror = () => {
+                    addLog('ERROR', `${stream.name} connection error`);
+                };
+            });
+        }
+
+        // Director Tab Functions
+        async function sendToDirector() {
+            const message = document.getElementById('userMessage').value;
+
+            if (!currentProjectId) {
+                alert('Please start a new project first');
+                return;
+            }
+
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+
+            const btn = document.getElementById('sendDirectorBtn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/api/director/converse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        message: message
+                    })
+                });
+
+                const result = await response.json();
+
+                // Add messages to conversation history
+                addConversationMessage('user', message);
+                addConversationMessage('director', result.response);
+
+                // Update status
+                updateConversationStatus(result);
+
+                // Clear input
+                document.getElementById('userMessage').value = '';
+
+                // If script is completed, auto-populate script tab and store characters
+                if (result.is_complete && result.plot_points.length > 0) {
+                    document.getElementById('basePlot').value = result.plot_points.join('\n');
+
+                    // Store characters in frontend state and auto-generate
+                    if (result.characters && result.characters.length > 0) {
+                        currentCharacters = result.characters;
+                        updateCharacterCounts();
+                        addLog('DIRECTOR', 'Conversation complete! Auto-generating characters...', {
+                            characters: result.characters.map(c => c.name)
+                        });
+
+                        // Auto-call character generation
+                        setTimeout(() => {
+                            generateAllCharacters();
+                        }, 1000);
+                    }
+                }
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send to Director';
+            }
+        }
+
+        function addConversationMessage(type, message) {
+            const history = document.getElementById('conversationHistory');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `<strong>${type === 'user' ? 'You' : 'Director'}:</strong> ${message}`;
+            history.appendChild(messageDiv);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function updateConversationStatus(result) {
+            document.getElementById('currentPlot').textContent = result.plot_points.join(', ') || 'Not set';
+            document.getElementById('characterCount').textContent = result.characters.length;
+            document.getElementById('isComplete').textContent = result.is_complete ? 'Yes' : 'No';
+        }
+
+        // Scriptwriter Tab Functions
+        async function enhanceScript() {
+            const basePlot = document.getElementById('basePlot').value;
+            const targetScenes = parseInt(document.getElementById('targetScenes').value);
+
+            if (!currentProjectId) {
+                alert('Please start a project first');
+                return;
+            }
+
+            if (!basePlot) {
+                alert('Please enter a base plot');
+                return;
+            }
+
+            const btn = document.getElementById('enhanceScriptBtn');
+            btn.disabled = true;
+            btn.textContent = 'Enhancing...';
+
+            try {
+                // Get characters from project
+                const charactersResponse = await fetch(`/api/projects/${currentProjectId}/characters`);
+                const characters = await charactersResponse.json();
+
+                // Calculate total duration based on frame structure: 3-2-3 frames
+                const frameStructure = [3, 2, 3];
+                const totalDuration = frameStructure.reduce((sum, frames) => sum + (frames * 8), 0);
+
+                document.getElementById('scriptResult').innerHTML = `
+                    <h3>Script Enhancement Starting</h3>
+                    <p id="scriptStatus" style="color: #fbbf24;">⏳ Enhancing plot and summary...</p>
+                `;
+
+                // Enhanced script directly from API
+                fetch('/api/jobs/script-enhancement', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        base_plot: basePlot,
+                        characters_context: characters
+                    })
+                }).then(response => response.json()).then(data => {
+                    if (data.success) {
+                        document.getElementById('scriptResult').innerHTML = `
+                            <h3>✅ Script Enhancement Complete</h3>
+                            <div style="margin: 15px 0;">
+                                <h4>Enhanced Summary:</h4>
+                                <p style="background: #f3f4f6; padding: 10px; border-radius: 6px; margin: 5px 0;">${data.enhanced_summary}</p>
+                            </div>
+                            <div style="margin: 15px 0;">
+                                <h4>Enhanced Plot:</h4>
+                                <div style="background: #f3f4f6; padding: 15px; border-radius: 6px; white-space: pre-wrap; line-height: 1.6; max-height: 300px; overflow-y: auto;">${data.enhanced_plot}</div>
+                            </div>
+                            <p style="color: #10b981;">✅ Project plot and summary have been updated in the database.</p>
+                        `;
+                        document.getElementById('scriptStatus').innerHTML = '<span style="color: #10b981;">✅ Complete</span>';
+                        addLog('SCRIPT', 'Script enhancement completed successfully', {
+                            enhanced_plot_length: data.enhanced_plot.length,
+                            enhanced_summary_length: data.enhanced_summary.length
+                        });
+                    } else {
+                        document.getElementById('scriptResult').innerHTML = `
+                            <h3>❌ Script Enhancement Failed</h3>
+                            <p style="color: #ef4444;">${data.error}</p>
+                        `;
+                        document.getElementById('scriptStatus').innerHTML = '<span style="color: #ef4444;">❌ Failed</span>';
+                        addLog('SCRIPT', 'Script enhancement failed', { error: data.error });
+                    }
+
+                    btn.disabled = false;
+                    btn.textContent = 'Enhance Script';
+                }).catch(error => {
+                    document.getElementById('scriptResult').innerHTML = `
+                        <h3>❌ Script Enhancement Error</h3>
+                        <p style="color: #ef4444;">${error.message}</p>
+                    `;
+                    document.getElementById('scriptStatus').innerHTML = '<span style="color: #ef4444;">❌ Error</span>';
+                    addLog('SCRIPT', 'Script enhancement error', { error: error.message });
+                    btn.disabled = false;
+                    btn.textContent = 'Enhance Script';
+                });
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = 'Enhance Script';
+            }
+        }
+
+        // Character Generation Functions
+        async function generateCharacters(characters) {
+            if (!currentProjectId || !characters || characters.length === 0) {
+                addLog('CHARACTER', 'No characters to generate');
+                return;
+            }
+
+            addLog('CHARACTER', `Starting generation for ${characters.length} characters`);
+
+            for (let i = 0; i < characters.length; i++) {
+                const character = characters[i];
+                try {
+                    addLog('CHARACTER', `Generating character ${i + 1}/${characters.length}: ${character.name}`);
+
+                    const response = await fetch('/api/jobs/character-generation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            project_id: currentProjectId,
+                            prompt: `${character.name}: ${character.description}`,
+                            name: character.name,
+                            context: character
+                        })
+                    });
+
+                    const result = await response.json();
+                    addLog('CHARACTER', `Character generation job created: ${character.name}`, { job_id: result.job_id });
+
+                } catch (error) {
+                    addLog('CHARACTER', `Failed to generate ${character.name}`, { error: error.message });
+                }
+
+                // Small delay between requests to avoid overwhelming the system
+                if (i < characters.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            addLog('CHARACTER', 'All character generation jobs submitted');
+
+            // Refresh characters display after a short delay
+            setTimeout(() => {
+                loadCharacters();
+            }, 2000);
+        }
+
+        // Characters Tab Functions
+        async function loadCharacters() {
+            if (!currentProjectId) {
+                document.getElementById('charactersContainer').innerHTML = '<p>No project selected.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}/characters`);
+                const characters = await response.json();
+
+                const container = document.getElementById('charactersContainer');
+
+                if (!characters.length) {
+                    container.innerHTML = '<p>No characters found yet. Complete the director conversation or check the sidebar for character generation progress.</p>';
+                    return;
+                }
+
+                container.innerHTML = characters.map(char => `
+                    <div class="character-card">
+                        <div class="character-image">
+                            ${char.media_url ? `<img src="${char.media_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;">` : 'No Image'}
+                        </div>
+                        <h4>${char.metadata.name || 'Unnamed'}</h4>
+                        <p><strong>Role:</strong> ${char.metadata.role || 'Unknown'}</p>
+                        <p><strong>Age:</strong> ${char.metadata.age || 'Unknown'}</p>
+                        <p><strong>Description:</strong> ${char.metadata.description || 'No description'}</p>
+                        <p><strong>Personality:</strong> ${char.metadata.personality || 'No personality set'}</p>
+                    </div>
+                `).join('');
+
+                // Update generated character count
+                document.getElementById('generatedCharacterCount').textContent = characters.length;
+
+            } catch (error) {
+                console.error('Error loading characters:', error);
+                document.getElementById('charactersContainer').innerHTML = '<p>Error loading characters.</p>';
+            }
+        }
+
+        // Scenes Tab Functions
+        async function loadScenes() {
+            if (!currentProjectId) {
+                document.getElementById('scenesContainer').innerHTML = '<p>No project selected.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}/complete`);
+                const data = await response.json();
+
+                const container = document.getElementById('scenesContainer');
+
+                if (!data.scenes.length) {
+                    container.innerHTML = '<p>No scenes found. Use the Scriptwriter tab to generate scenes!</p>';
+                    return;
+                }
+
+                container.innerHTML = data.scenes.map(scene => `
+                    <div class="scene-card" onclick="showSceneFrames('${scene.id}', '${scene.metadata.concise_plot}')">
+                        ${scene.media_url ? `
+                            <div style="width: 100%; height: 200px; margin-bottom: 10px; border-radius: 6px; overflow: hidden;">
+                                <img src="${scene.media_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="Scene ${scene.metadata.scene_order || 'Unknown'}" />
+                            </div>
+                        ` : `
+                            <div style="width: 100%; height: 200px; margin-bottom: 10px; background: #2a2a2a; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #666;">
+                                No Scene Image
+                            </div>
+                        `}
+                        <h4>Scene ${scene.metadata.scene_order || 'Unknown'}</h4>
+                        <p><strong>Plot:</strong> ${scene.metadata.concise_plot || 'No plot'}</p>
+                        <p><strong>Dialogue:</strong> ${scene.metadata.dialogue || 'No dialogue'}</p>
+                        <div class="status-indicator status-${data.completion_status}">
+                            ${data.completion_status}
+                        </div>
+                    </div>
+                `).join('');
+
+                // Update scene and frame counts
+                document.getElementById('generatedSceneCount').textContent = data.scenes.length;
+                const totalFrames = data.frames ? data.frames.length : 0;
+                document.getElementById('totalFrameCount').textContent = totalFrames;
+
+            } catch (error) {
+                console.error('Error loading scenes:', error);
+                document.getElementById('scenesContainer').innerHTML = '<p>Error loading scenes.</p>';
+            }
+        }
+
+        async function showSceneFrames(sceneId, sceneTitle) {
+            if (!currentProjectId) return;
+
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}/complete`);
+                const data = await response.json();
+
+                const frames = data.frames.filter(frame => frame.scene_id === sceneId);
+
+                document.getElementById('modalSceneTitle').textContent = `Frames for: ${sceneTitle}`;
+
+                const content = document.getElementById('modalSceneContent');
+                content.innerHTML = frames.length ? frames.map(frame => `
+                    <div class="frame-card">
+                        ${frame.media_url ? `
+                            <div style="width: 100%; height: 150px; margin-bottom: 10px; border-radius: 6px; overflow: hidden;">
+                                <img src="${frame.media_url}" style="width: 100%; height: 100%; object-fit: cover;" alt="Frame ${frame.metadata.frame_order || 'Unknown'}" />
+                            </div>
+                        ` : `
+                            <div style="width: 100%; height: 150px; margin-bottom: 10px; background: #333; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #666;">
+                                No Frame Image
+                            </div>
+                        `}
+                        <h4>Frame ${frame.metadata.frame_order || 'Unknown'}</h4>
+                        <p><strong>Summary:</strong> ${frame.metadata.summary || 'No summary'}</p>
+                        <p><strong>Dialogue:</strong> ${frame.metadata.dialogue || 'No dialogue'}</p>
+                        <p><strong>Veo3 Prompt:</strong> ${frame.metadata.veo3_prompt || 'No prompt'}</p>
+                        ${frame.video_url ? `
+                            <div style="margin-top: 10px;">
+                                <video controls style="width: 100%; max-height: 200px; border-radius: 6px;">
+                                    <source src="${frame.video_url}" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        ` : '<p style="color: #fbbf24;"><small>⏳ No video yet</small></p>'}
+                    </div>
+                `).join('') : '<p>No frames found for this scene.</p>';
+
+                document.getElementById('sceneModal').style.display = 'block';
+
+            } catch (error) {
+                alert('Error loading frames: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('sceneModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('sceneModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Character State Management Functions
+        function updateCharacterCounts() {
+            document.getElementById('directorCharacterCount').textContent = currentCharacters.length;
+
+            // Count generated characters from database
+            loadCharacters().then(() => {
+                // This updates the generated character count after loading from DB
+            });
+        }
+
+        async function generateAllCharacters() {
+            if (!currentProjectId) {
+                alert('Please start a project first');
+                return;
+            }
+
+            if (currentCharacters.length === 0) {
+                alert('No characters found. Complete the director conversation first to get characters.');
+                return;
+            }
+
+            const btn = document.getElementById('generateCharactersBtn');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                addLog('CHARACTER', `Starting generation for ${currentCharacters.length} characters`);
+
+                for (let i = 0; i < currentCharacters.length; i++) {
+                    const character = currentCharacters[i];
+                    addLog('CHARACTER', `Generating character ${i + 1}/${currentCharacters.length}: ${character.name}`);
+
+                    const response = await fetch('/api/jobs/character-generation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            project_id: currentProjectId,
+                            prompt: `${character.name}: ${character.description}`,
+                            name: character.name,
+                            context: character
+                        })
+                    });
+
+                    const result = await response.json();
+                    addLog('CHARACTER', `Character generation job created: ${character.name}`, { job_id: result.job_id });
+
+                    // Small delay to avoid overwhelming the system
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                addLog('CHARACTER', 'All character generation jobs submitted successfully');
+
+                // Refresh characters after a few seconds
+                setTimeout(() => loadCharacters(), 3000);
+
+            } catch (error) {
+                addLog('CHARACTER', 'Error generating characters', { error: error.message });
+                alert('Error generating characters: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generate All Characters';
+            }
+        }
+
+        // Scene State Management Functions
+        function updateSceneCounts() {
+            document.getElementById('scriptSceneCount').textContent = '3';
+
+            // Load and count generated scenes
+            loadScenes();
+        }
+
+        async function generateAllScenes() {
+            if (!currentProjectId) {
+                alert('Please start a project first');
+                return;
+            }
+
+            // Check if script has been enhanced (project has plot)
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}`);
+                const project = await response.json();
+
+                if (!project.plot || project.plot.trim() === '') {
+                    alert('Please enhance the script first to generate scenes. Go to the Scriptwriter tab and use "Enhance Script".');
+                    return;
+                }
+
+                const btn = document.getElementById('generateScenesBtn');
+                btn.disabled = true;
+                btn.textContent = 'Generating...';
+
+                addLog('SCENE', 'Starting bulk scene generation (3-2-3 frame structure)');
+
+                // Get characters for context
+                const charactersResponse = await fetch(`/api/projects/${currentProjectId}/characters`);
+                const characters = await charactersResponse.json();
+
+                // Frame structure: Scene 1 (3 frames), Scene 2 (2 frames), Scene 3 (3 frames)
+                const frameStructure = [3, 2, 3];
+
+                for (let sceneIndex = 0; sceneIndex < 3; sceneIndex++) {
+                    const sceneOrder = sceneIndex + 1;
+                    const targetFrames = frameStructure[sceneIndex];
+                    const duration = targetFrames * 8;
+
+                    addLog('SCENE', `Generating Scene ${sceneOrder} (${targetFrames} frames, ${duration}s)`);
+
+                    // Generate scene
+                    const sceneResponse = await fetch('/api/jobs/scene-generation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            project_id: currentProjectId,
+                            scene_description: `Scene ${sceneOrder} from the enhanced plot`,
+                            plot_context: project.plot,
+                            characters_context: JSON.stringify(characters),
+                            target_frames: targetFrames
+                        })
+                    });
+
+                    const sceneResult = await sceneResponse.json();
+                    addLog('SCENE', `Scene ${sceneOrder} generation job created`, { job_id: sceneResult.job_id });
+
+                    // Small delay between scenes
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+
+                addLog('SCENE', 'All scene generation jobs submitted. Frames will be generated automatically.');
+
+                // Refresh scenes after a delay
+                setTimeout(() => {
+                    updateSceneCounts();
+                }, 5000);
+
+            } catch (error) {
+                addLog('SCENE', 'Error generating scenes', { error: error.message });
+                alert('Error generating scenes: ' + error.message);
+            } finally {
+                const btn = document.getElementById('generateScenesBtn');
+                btn.disabled = false;
+                btn.textContent = 'Generate All Scenes';
+            }
+        }
+
+        // Initialize
+        addLog('SYSTEM', 'AI Film Studio Test Interface loaded. Click "Start New Project" to begin your film creation journey!');
+    </script>
+</body>
+</html>

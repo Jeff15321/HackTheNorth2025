@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { addJob, getJobStatus, cancelJob, getQueueInfo } from '../utils/queue.js';
+import { SchemaType, Schema } from '@google/generative-ai';
 
 export async function jobRoutes(fastify: FastifyInstance) {
   const jobsSchema = {
@@ -18,7 +19,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
           prompt: { type: 'string' },
           object_type: { type: 'string' },
           environmental_context: { type: 'string' },
-          context: { type: 'object' }
+          context: { type: 'object', additionalProperties: true }
         },
         required: ['project_id', 'prompt', 'object_type']
       },
@@ -51,7 +52,8 @@ export async function jobRoutes(fastify: FastifyInstance) {
       updated_at: new Date().toISOString()
     };
 
-    await addJob('object-generation', jobData);
+    // no objects at all
+    // await addJob('object-generation', jobData);
 
     reply.status(201).send({ job_id: jobData.id });
   });
@@ -66,7 +68,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
           project_id: { type: 'string', format: 'uuid' },
           prompt: { type: 'string' },
           name: { type: 'string' },
-          context: { type: 'object' }
+          context: { type: 'object', additionalProperties: true }
         },
         required: ['project_id', 'prompt']
       },
@@ -113,7 +115,8 @@ export async function jobRoutes(fastify: FastifyInstance) {
           project_id: { type: 'string', format: 'uuid' },
           scene_description: { type: 'string' },
           characters_context: { type: 'string' },
-          plot_context: { type: 'string' }
+          plot_context: { type: 'string' },
+          target_frames: { type: 'number', default: 1 }
         },
         required: ['project_id', 'scene_description']
       },
@@ -122,7 +125,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { project_id, scene_description, characters_context, plot_context } = request.body as any;
+    const { project_id, scene_description, characters_context, plot_context, target_frames = 1 } = request.body as any;
 
     const jobData = {
       id: crypto.randomUUID(),
@@ -133,7 +136,8 @@ export async function jobRoutes(fastify: FastifyInstance) {
       input_data: {
         scene_description,
         characters_context: characters_context || '',
-        plot_context: plot_context || ''
+        plot_context: plot_context || '',
+        target_frames
       },
       output_data: {},
       created_at: new Date().toISOString(),
@@ -156,7 +160,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
           scene_id: { type: 'string', format: 'uuid' },
           scene_description: { type: 'string' },
           scene_plot: { type: 'string' },
-          context: { type: 'object' }
+          context: { type: 'object', additionalProperties: true }
         },
         required: ['project_id', 'scene_id']
       },
@@ -194,90 +198,172 @@ export async function jobRoutes(fastify: FastifyInstance) {
     reply.status(201).send({ job_id: jobData.id });
   });
 
-  fastify.post('/api/jobs/object-analysis', {
+  fastify.post('/api/jobs/script-enhancement', {
     schema: {
       ...jobsSchema,
-      summary: 'Analyze a scene to determine required objects',
+      summary: 'Enhance script and save to database',
       body: {
         type: 'object',
         properties: {
           project_id: { type: 'string', format: 'uuid' },
-          scene_id: { type: 'string', format: 'uuid' },
-          scene_description: { type: 'string' },
-          context: { type: 'object' }
+          base_plot: { type: 'string' },
+          characters_context: { type: 'array', items: { type: 'object' } },
+          target_scenes: { type: 'number', default: 3 }
         },
-        required: ['project_id', 'scene_id', 'scene_description']
+        required: ['project_id', 'base_plot', 'characters_context']
       },
       response: {
-        201: { type: 'object', properties: { job_id: { type: 'string' } } }
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            enhanced_plot: { type: 'string' },
+            enhanced_summary: { type: 'string' }
+          },
+          required: ['success', 'enhanced_plot', 'enhanced_summary']
+        },
+        500: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: { type: 'string' }
+          },
+          required: ['success', 'error']
+        }
       }
     }
   }, async (request, reply) => {
-    const { project_id, scene_id, scene_description, context } = request.body as any;
+    const { project_id, base_plot, characters_context } = request.body as any;
 
-    const jobData = {
-      id: crypto.randomUUID(),
-      project_id,
-      type: 'object-analysis' as const,
-      status: 'pending' as const,
-      progress: 0,
-      input_data: {
-        scene_id,
-        scene_description,
-        context
-      },
-      output_data: {},
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    try {
+      const charactersInfo = characters_context.map((char: any) =>
+        `${char.metadata?.name || char.name || 'Unknown'}: ${char.metadata?.description || char.description || 'No description'}`
+      ).join('\n');
 
-    await addJob('object-analysis', jobData);
+      const prompt = `Current plot: ${base_plot}
 
-    reply.status(201).send({ job_id: jobData.id });
+Characters:
+${charactersInfo}
+
+Please enhance this plot by adding more detail, better pacing, and richer character interactions while keeping it concise.
+
+Return a JSON object with:
+- enhanced_plot: The enhanced plot with more detail (2-3 paragraphs max)
+- enhanced_summary: A brief summary of the enhanced plot (1-2 sentences)`;
+
+      const systemPrompt = 'You are a professional story editor. Enhance the given plot by adding depth, better character motivations, and clearer story beats while keeping it concise and focused.';
+
+      const { generateJSON } = await import('../ai/gemini.js');
+
+      const geminiSchema: Schema = {
+        type: SchemaType.OBJECT,
+        properties: {
+          enhanced_plot: { type: SchemaType.STRING },
+          enhanced_summary: { type: SchemaType.STRING }
+        },
+        required: ["enhanced_plot", "enhanced_summary"]
+      };
+
+      const parsed = await generateJSON<{enhanced_plot: string, enhanced_summary: string}>(prompt, geminiSchema, systemPrompt);
+
+      // Update project in database
+      const { getDatabase } = await import('../utils/database.js');
+      const db = getDatabase();
+
+      const { error: updateError } = await db
+        .from('projects')
+        .update({
+          plot: parsed.enhanced_plot,
+          summary: parsed.enhanced_summary,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', project_id);
+
+      if (updateError) {
+        throw new Error(`Failed to update project: ${updateError.message}`);
+      }
+
+      reply.send({
+        success: true,
+        enhanced_plot: parsed.enhanced_plot,
+        enhanced_summary: parsed.enhanced_summary
+      });
+
+    } catch (error: any) {
+      reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
   });
 
-  fastify.post('/api/jobs/frame-analysis', {
+  fastify.post('/api/jobs/bulk-scene-generation', {
     schema: {
       ...jobsSchema,
-      summary: 'Analyze a scene to determine frame breakdown',
+      summary: 'Create multiple scene generation jobs',
       body: {
         type: 'object',
         properties: {
           project_id: { type: 'string', format: 'uuid' },
-          scene_id: { type: 'string', format: 'uuid' },
-          scene_description: { type: 'string' },
-          scene_plot: { type: 'string' },
-          context: { type: 'object' }
+          enhanced_plot: { type: 'string' },
+          scene_breakdowns: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                scene_order: { type: 'number' },
+                scene_description: { type: 'string' },
+                target_frames: { type: 'number' }
+              },
+              required: ['scene_order', 'scene_description', 'target_frames']
+            }
+          }
         },
-        required: ['project_id', 'scene_id', 'scene_description']
+        required: ['project_id', 'enhanced_plot', 'scene_breakdowns']
       },
       response: {
-        201: { type: 'object', properties: { job_id: { type: 'string' } } }
+        201: {
+          type: 'object',
+          properties: {
+            job_ids: { type: 'array', items: { type: 'string' } },
+            total_scenes: { type: 'number' }
+          }
+        }
       }
     }
   }, async (request, reply) => {
-    const { project_id, scene_id, scene_description, scene_plot, context } = request.body as any;
+    const { project_id, enhanced_plot, scene_breakdowns } = request.body as any;
 
-    const jobData = {
-      id: crypto.randomUUID(),
-      project_id,
-      type: 'frame-analysis' as const,
-      status: 'pending' as const,
-      progress: 0,
-      input_data: {
-        scene_id,
-        scene_description,
-        scene_plot,
-        context
-      },
-      output_data: {},
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    const jobIds: string[] = [];
 
-    await addJob('frame-analysis', jobData);
+    // Spawn individual scene generation jobs
+    for (const scene of scene_breakdowns) {
+      const jobData = {
+        id: crypto.randomUUID(),
+        project_id,
+        type: 'scene-generation' as const,
+        status: 'pending' as const,
+        progress: 0,
+        input_data: {
+          scene_description: scene.scene_description,
+          characters_context: enhanced_plot,
+          plot_context: enhanced_plot,
+          scene_order: scene.scene_order,
+          target_frames: scene.target_frames
+        },
+        output_data: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-    reply.status(201).send({ job_id: jobData.id });
+      await addJob('scene-generation', jobData);
+      jobIds.push(jobData.id);
+    }
+
+    reply.status(201).send({
+      job_ids: jobIds,
+      total_scenes: scene_breakdowns.length
+    });
   });
 
   fastify.post('/api/jobs/script-generation', {
@@ -290,7 +376,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
           project_id: { type: 'string', format: 'uuid' },
           prompt: { type: 'string' },
           type: { type: 'string', enum: ['script', 'character', 'plot'] },
-          context: { type: 'object' }
+          context: { type: 'object', additionalProperties: true }
         },
         required: ['project_id', 'prompt', 'type']
       },
@@ -333,7 +419,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
           prompt: { type: 'string' },
           image_url: { type: 'string' },
           duration: { type: 'number', default: 8 },
-          metadata: { type: 'object' }
+          metadata: { type: 'object', additionalProperties: true }
         },
         required: ['project_id', 'prompt']
       },
@@ -377,7 +463,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
           project_id: { type: 'string', format: 'uuid' },
           video_urls: { type: 'array', items: { type: 'string' } },
           output_name: { type: 'string' },
-          options: { type: 'object' }
+          options: { type: 'object', additionalProperties: true }
         },
         required: ['project_id', 'video_urls']
       },
@@ -879,5 +965,241 @@ export async function jobRoutes(fastify: FastifyInstance) {
         statusCode: 500
       }));
     }
+  });
+
+  // Real-time SSE endpoints for specific scenarios
+  fastify.get('/api/events/project/:project_id/characters', {
+    schema: {
+      ...jobsSchema,
+      summary: 'Stream character generation progress for a project',
+      params: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id']
+      }
+    }
+  }, async (request, reply) => {
+    const { project_id } = request.params as { project_id: string };
+
+    reply.type('text/event-stream');
+    reply.raw.setHeader('Cache-Control', 'no-cache');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+
+    const sendEvent = (event: string, data: any) => {
+      reply.raw.write(`event: ${event}\n`);
+      reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    sendEvent('connected', { project_id, type: 'character_generation', timestamp: new Date().toISOString() });
+
+    // Monitor character generation jobs for this project
+    const interval = setInterval(async () => {
+      try {
+        const { getRedisClient } = await import('../utils/queue.js');
+        const redis = getRedisClient();
+
+        // Check for completed character jobs
+        const pattern = `job:character-generation:${project_id}:*`;
+        const keys = await redis.keys(pattern);
+
+        for (const key of keys) {
+          const jobData = await redis.get(key);
+          if (jobData) {
+            const job = JSON.parse(jobData);
+            if (job.status === 'completed' && job.output_data?.character_id) {
+              sendEvent('character_complete', {
+                character_id: job.output_data.character_id,
+                character_data: job.output_data,
+                timestamp: new Date().toISOString()
+              });
+            } else if (job.status === 'failed') {
+              sendEvent('character_failed', {
+                job_id: job.id,
+                error: job.error_message,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+        }
+      } catch (error) {
+        sendEvent('error', { message: 'Failed to check job status', timestamp: new Date().toISOString() });
+      }
+    }, 1000);
+
+    request.raw.on('close', () => {
+      clearInterval(interval);
+    });
+  });
+
+  fastify.get('/api/events/project/:project_id/scenes', {
+    schema: {
+      ...jobsSchema,
+      summary: 'Stream scene generation progress for a project',
+      params: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id']
+      }
+    }
+  }, async (request, reply) => {
+    const { project_id } = request.params as { project_id: string };
+
+    reply.type('text/event-stream');
+    reply.raw.setHeader('Cache-Control', 'no-cache');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+
+    const sendEvent = (event: string, data: any) => {
+      reply.raw.write(`event: ${event}\n`);
+      reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    sendEvent('connected', { project_id, type: 'scene_generation', timestamp: new Date().toISOString() });
+
+    const interval = setInterval(async () => {
+      try {
+        const { getRedisClient } = await import('../utils/queue.js');
+        const redis = getRedisClient();
+
+        // Check scene generation progress
+        const scenePattern = `job:scene-generation:${project_id}:*`;
+        const objectPattern = `job:object-generation:${project_id}:*`;
+        const framePattern = `job:frame-generation:${project_id}:*`;
+
+        const [sceneKeys, objectKeys, frameKeys] = await Promise.all([
+          redis.keys(scenePattern),
+          redis.keys(objectPattern),
+          redis.keys(framePattern)
+        ]);
+
+        // Send scene completion events
+        for (const key of sceneKeys) {
+          const jobData = await redis.get(key);
+          if (jobData) {
+            const job = JSON.parse(jobData);
+            if (job.status === 'completed') {
+              sendEvent('scene_complete', {
+                scene_id: job.output_data?.scene_id,
+                scene_data: job.output_data,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+        }
+
+        // Send batch progress
+        const totalObjects = objectKeys.length;
+        const completedObjects = (await Promise.all(
+          objectKeys.map(async key => {
+            const data = await redis.get(key);
+            return data ? JSON.parse(data).status === 'completed' : false;
+          })
+        )).filter(Boolean).length;
+
+        const totalFrames = frameKeys.length;
+        const completedFrames = (await Promise.all(
+          frameKeys.map(async key => {
+            const data = await redis.get(key);
+            return data ? JSON.parse(data).status === 'completed' : false;
+          })
+        )).filter(Boolean).length;
+
+        sendEvent('batch_progress', {
+          objects: { completed: completedObjects, total: totalObjects },
+          frames: { completed: completedFrames, total: totalFrames },
+          timestamp: new Date().toISOString()
+        });
+
+      } catch (error) {
+        sendEvent('error', { message: 'Failed to check progress', timestamp: new Date().toISOString() });
+      }
+    }, 1000);
+
+    request.raw.on('close', () => {
+      clearInterval(interval);
+    });
+  });
+
+  fastify.get('/api/events/project/:project_id/videos', {
+    schema: {
+      ...jobsSchema,
+      summary: 'Stream video generation progress for a project',
+      params: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id']
+      }
+    }
+  }, async (request, reply) => {
+    const { project_id } = request.params as { project_id: string };
+
+    reply.type('text/event-stream');
+    reply.raw.setHeader('Cache-Control', 'no-cache');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+
+    const sendEvent = (event: string, data: any) => {
+      reply.raw.write(`event: ${event}\n`);
+      reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    sendEvent('connected', { project_id, type: 'video_generation', timestamp: new Date().toISOString() });
+
+    const interval = setInterval(async () => {
+      try {
+        const { getRedisClient } = await import('../utils/queue.js');
+        const redis = getRedisClient();
+
+        const videoPattern = `job:video-generation:${project_id}:*`;
+        const videoKeys = await redis.keys(videoPattern);
+
+        let completedVideos = 0;
+        const totalVideos = videoKeys.length;
+
+        for (const key of videoKeys) {
+          const jobData = await redis.get(key);
+          if (jobData) {
+            const job = JSON.parse(jobData);
+            if (job.status === 'completed') {
+              completedVideos++;
+              sendEvent('video_complete', {
+                frame_id: job.input_data?.frame_id,
+                video_url: job.output_data?.video_url,
+                timestamp: new Date().toISOString()
+              });
+            } else if (job.status === 'active') {
+              sendEvent('video_progress', {
+                frame_id: job.input_data?.frame_id,
+                progress: job.progress || 0,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+        }
+
+        // Check if all videos are done
+        if (totalVideos > 0 && completedVideos === totalVideos) {
+          sendEvent('project_ready', {
+            message: 'All videos generated, project ready for final assembly',
+            completed_videos: completedVideos,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+      } catch (error) {
+        sendEvent('error', { message: 'Failed to check video progress', timestamp: new Date().toISOString() });
+      }
+    }, 2000); // Slower polling for video generation
+
+    request.raw.on('close', () => {
+      clearInterval(interval);
+    });
   });
 }

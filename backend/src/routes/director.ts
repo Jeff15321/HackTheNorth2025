@@ -106,7 +106,7 @@ export async function directorRoutes(fastify: FastifyInstance) {
         properties: {
           page_route: { type: 'string' },
           user_query: { type: 'string' },
-          context: { type: 'object' }
+          context: { type: 'object', additionalProperties: true }
         },
         required: ['page_route', 'user_query']
       },
@@ -386,7 +386,7 @@ Provide guidance and any relevant function calls to help the user.
         properties: {
           project_id: { type: 'string', format: 'uuid' },
           message: { type: 'string' },
-          context: { type: 'object' }
+          context: { type: 'object', additionalProperties: true }
         },
         required: ['project_id', 'message']
       },

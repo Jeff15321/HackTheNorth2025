@@ -17,9 +17,11 @@ export const ProjectSchema = z.object({
 
 export const CharacterMetadataSchema = z.object({
   name: z.string(),
+  role: z.string().optional(),
   age: z.number(),
   personality: z.string(),
-  description: z.string()
+  description: z.string(),
+  backstory: z.string().optional()
 });
 
 export const CharacterSchema = z.object({

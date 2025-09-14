@@ -222,4 +222,408 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }));
     }
   });
+
+  // Content editing endpoints
+  fastify.put('/api/projects/:project_id/characters/:id', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Update character metadata',
+      params: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id', 'id']
+      },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          role: { type: 'string' },
+          age: { type: 'number' },
+          personality: { type: 'string' },
+          description: { type: 'string' },
+          backstory: { type: 'string' }
+        }
+      },
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' } } }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { project_id, id } = request.params as { project_id: string; id: string };
+      const updates = request.body as any;
+
+      const db = getDatabase();
+      const { data: character } = await db
+        .from('characters')
+        .select('*')
+        .eq('id', id)
+        .eq('project_id', project_id)
+        .single();
+
+      if (!character) {
+        return reply.status(404).send({ error: 'Character not found' });
+      }
+
+      const updatedMetadata = { ...character.metadata, ...updates };
+
+      const { error } = await db
+        .from('characters')
+        .update({ metadata: updatedMetadata })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error('Error updating character:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
+
+  fastify.put('/api/projects/:project_id/scenes/:id', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Update scene metadata',
+      params: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id', 'id']
+      },
+      body: {
+        type: 'object',
+        properties: {
+          detailed_plot: { type: 'string' },
+          concise_plot: { type: 'string' },
+          dialogue: { type: 'string' },
+          scene_order: { type: 'number' }
+        }
+      },
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' } } }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { project_id, id } = request.params as { project_id: string; id: string };
+      const updates = request.body as any;
+
+      const db = getDatabase();
+      const { data: scene } = await db
+        .from('scenes')
+        .select('*')
+        .eq('id', id)
+        .eq('project_id', project_id)
+        .single();
+
+      if (!scene) {
+        return reply.status(404).send({ error: 'Scene not found' });
+      }
+
+      const updatedMetadata = { ...scene.metadata, ...updates };
+
+      const { error } = await db
+        .from('scenes')
+        .update({ metadata: updatedMetadata })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error('Error updating scene:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
+
+  fastify.put('/api/projects/:project_id/objects/:id', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Update object metadata',
+      params: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id', 'id']
+      },
+      body: {
+        type: 'object',
+        properties: {
+          type: { type: 'string' },
+          environmental_context: { type: 'string' },
+          description: { type: 'string' }
+        }
+      },
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' } } }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { project_id, id } = request.params as { project_id: string; id: string };
+      const updates = request.body as any;
+
+      const db = getDatabase();
+      const { data: object } = await db
+        .from('objects')
+        .select('*')
+        .eq('id', id)
+        .eq('project_id', project_id)
+        .single();
+
+      if (!object) {
+        return reply.status(404).send({ error: 'Object not found' });
+      }
+
+      const updatedMetadata = { ...object.metadata, ...updates };
+
+      const { error } = await db
+        .from('objects')
+        .update({ metadata: updatedMetadata })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error('Error updating object:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
+
+  fastify.put('/api/projects/:project_id/frames/:id', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Update frame metadata',
+      params: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id', 'id']
+      },
+      body: {
+        type: 'object',
+        properties: {
+          veo3_prompt: { type: 'string' },
+          dialogue: { type: 'string' },
+          summary: { type: 'string' },
+          split_reason: { type: 'string' }
+        }
+      },
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' } } }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { project_id, id } = request.params as { project_id: string; id: string };
+      const updates = request.body as any;
+
+      const db = getDatabase();
+      const { data: frame } = await db
+        .from('frames')
+        .select('*')
+        .eq('id', id)
+        .eq('project_id', project_id)
+        .single();
+
+      if (!frame) {
+        return reply.status(404).send({ error: 'Frame not found' });
+      }
+
+      const updatedMetadata = { ...frame.metadata, ...updates };
+
+      const { error } = await db
+        .from('frames')
+        .update({ metadata: updatedMetadata })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error('Error updating frame:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
+
+  // GET endpoints for content retrieval
+  fastify.get('/api/projects/:id/characters', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Get all characters for a project',
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['id']
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const db = getDatabase();
+
+      const { data: characters, error } = await db
+        .from('characters')
+        .select('*')
+        .eq('project_id', id);
+
+      if (error) throw error;
+
+      reply.send(characters || []);
+    } catch (error: any) {
+      fastify.log.error('Error fetching characters:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
+
+  fastify.get('/api/projects/:id/scenes', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Get all scenes for a project',
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['id']
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const db = getDatabase();
+
+      const { data: scenes, error } = await db
+        .from('scenes')
+        .select('*')
+        .eq('project_id', id);
+
+      if (error) throw error;
+
+      reply.send(scenes || []);
+    } catch (error: any) {
+      fastify.log.error('Error fetching scenes:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
+
+  fastify.get('/api/projects/:id/complete', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Get complete project status with all content',
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['id']
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const db = getDatabase();
+
+      const [
+        { data: scenes },
+        { data: characters },
+        { data: objects },
+        { data: frames }
+      ] = await Promise.all([
+        db.from('scenes').select('*').eq('project_id', id),
+        db.from('characters').select('*').eq('project_id', id),
+        db.from('objects').select('*').eq('project_id', id),
+        db.from('frames').select('*').eq('project_id', id)
+      ]);
+
+      // Check completion status
+      const hasCharacters = characters && characters.length > 0;
+      const hasScenes = scenes && scenes.length > 0;
+      const hasFrames = frames && frames.length > 0;
+      const allVideosGenerated = frames?.every(frame => frame.video_url) || false;
+
+      let completion_status = 'initializing';
+      if (hasCharacters && !hasScenes) completion_status = 'scripting';
+      else if (hasScenes && !allVideosGenerated) completion_status = 'generating';
+      else if (allVideosGenerated) completion_status = 'ready';
+
+      reply.send({
+        scenes: scenes || [],
+        characters: characters || [],
+        objects: objects || [],
+        frames: frames || [],
+        completion_status
+      });
+    } catch (error: any) {
+      fastify.log.error('Error fetching complete project:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
+
+  fastify.post('/api/projects/:id/confirm-video', {
+    schema: {
+      ...projectsSchema,
+      summary: 'Confirm final video assembly',
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        },
+        required: ['id']
+      },
+      body: {
+        type: 'object',
+        properties: {
+          confirmed: { type: 'boolean' }
+        },
+        required: ['confirmed']
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const { confirmed } = request.body as { confirmed: boolean };
+
+      if (!confirmed) {
+        return reply.status(400).send({ error: 'Video confirmation required' });
+      }
+
+      // Here you would trigger video stitching job
+      const jobData = {
+        id: crypto.randomUUID(),
+        project_id: id,
+        type: 'video-stitching' as const,
+        status: 'pending' as const,
+        progress: 0,
+        input_data: { project_id: id },
+        output_data: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { addJob } = await import('../utils/queue.js');
+      await addJob('video-stitching', jobData);
+
+      reply.send({
+        message: 'Video assembly started',
+        job_id: jobData.id
+      });
+    } catch (error: any) {
+      fastify.log.error('Error confirming video:', error);
+      reply.status(500).send({ error: error.message });
+    }
+  });
 }

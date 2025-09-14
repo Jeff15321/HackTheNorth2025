@@ -640,9 +640,20 @@ class E2EContextTest {
     TestLogger.info('Testing: Director Agent /api/director/converse → Character suggestions → Plot outline → Next steps');
 
     try {
-      // Test the director converse endpoint
+      // Create a temporary project for the conversation test
+      TestLogger.info('📝 Creating temporary project for conversation test...');
+      const tempProject = await this.api.call('POST', '/api/projects', {
+        title: 'E2E Conversation Test Project',
+        summary: 'Temporary project for testing AI conversation and planning',
+        plot: 'Test plot for conversation functionality'
+      });
+
+      const tempProjectId = tempProject.id;
+      TestLogger.success(`Temporary project created: ${tempProjectId}`);
+
+      // Test the director converse endpoint with the real project ID
       const conversationRequest = {
-        project_id: "550e8400-e29b-41d4-a716-446655440000", // Mock UUID
+        project_id: tempProjectId, // ✅ Use real project ID instead of mock
         message: "Create a cyberpunk film about AI consciousness and rebellion in Neo Tokyo 2087",
         context: {
           preferences: {
