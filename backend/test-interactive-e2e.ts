@@ -1,9 +1,6 @@
 import { spawn } from 'child_process';
 import * as readline from 'readline';
-import fetch, { FormData, File } from 'node-fetch';
 import { configDotenv } from 'dotenv';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 configDotenv();
 
@@ -34,6 +31,7 @@ type Scene = {
   description: string;
   concise_plot: string;
   detailed_plot: string;
+  dialogue: string;
   scene_order: number;
 };
 
@@ -102,12 +100,14 @@ class InteractiveLogger {
     
     const sanitized = { ...data };
     const urlKeys = ['image_url', 'video_url', 'media_url', 'source_url', 'imageUrl', 'videoUrl'];
-    
+
     for (const key of Object.keys(sanitized)) {
       if (urlKeys.includes(key)) {
         if (typeof sanitized[key] === 'string') {
           if (sanitized[key].startsWith('data:')) {
             sanitized[key] = '[DATA_URL: truncated]';
+          } else if (sanitized[key].includes('supabase')) {
+            sanitized[key] = '[SUPABASE_URL: truncated]';
           } else if (sanitized[key].startsWith('http')) {
             sanitized[key] = '[EXTERNAL_URL: truncated]';
           }
@@ -188,7 +188,7 @@ class APIClient {
         throw new Error(`HTTP ${response.status}: ${error}`);
       }
 
-      return await response.json();
+      return await response.json() as APIResponse;
     } catch (error) {
       InteractiveLogger.error(`API call failed: ${endpoint}`, error);
       throw error;
@@ -253,6 +253,8 @@ class InteractiveE2ETest {
   }
 
   async run() {
+    const startTime = Date.now();
+
     try {
       await this.startServer();
       await this.waitForServerReady();
@@ -276,8 +278,16 @@ class InteractiveE2ETest {
       InteractiveLogger.heading('✨ FILM GENERATION COMPLETE!');
       this.printSummary();
 
+      // Log total duration
+      const endTime = Date.now();
+      const totalDuration = (endTime - startTime) / 1000; // Convert to seconds
+      InteractiveLogger.success(`⏱️  TOTAL E2E TEST DURATION: ${totalDuration.toFixed(2)} seconds`);
+
     } catch (error) {
+      const endTime = Date.now();
+      const totalDuration = (endTime - startTime) / 1000; // Convert to seconds
       InteractiveLogger.error('Test failed', error);
+      InteractiveLogger.error(`⏱️  TEST DURATION BEFORE FAILURE: ${totalDuration.toFixed(2)} seconds`);
     } finally {
       this.cleanup();
     }
@@ -298,7 +308,6 @@ class InteractiveE2ETest {
 
     // Director conversation loop
     let conversationComplete = false;
-    let context: any = {};
 
     while (!conversationComplete) {
       InteractiveLogger.prompt('Talk to the AI Director about your film idea');
@@ -306,31 +315,55 @@ class InteractiveE2ETest {
 
       const directorResponse = await this.api.call('POST', '/api/director/converse', {
         project_id: this.results.projectId,
-        message: userInput,
-        context
+        message: userInput
       });
 
       InteractiveLogger.info('Director says:');
       console.log(`\n${colors.magenta}${directorResponse.response}${colors.reset}\n`);
 
-      // Update context
-      if (directorResponse.context) {
-        context = { ...context, ...directorResponse.context };
+      // Show generated plot points and characters
+      if (directorResponse.plot_points && directorResponse.plot_points.length > 0) {
+        InteractiveLogger.success('📖 Current Plot Points:');
+        directorResponse.plot_points.forEach((point: string, i: number) => {
+          console.log(`  ${colors.cyan}${i + 1}.${colors.reset} ${point}`);
+        });
+        console.log();
       }
 
-      // Check if we have plot and characters
-      if (context.plot && context.characters && context.characters.length > 0) {
-        InteractiveLogger.success('Plot and characters identified!');
-        console.log('\n📖 Plot:', context.plot);
-        console.log('\n👥 Characters:');
-        context.characters.forEach((char: any, i: number) => {
-          console.log(`  ${i + 1}. ${char.name} - ${char.description}`);
+      if (directorResponse.characters && directorResponse.characters.length > 0) {
+        InteractiveLogger.success('👥 Current Characters:');
+        directorResponse.characters.forEach((char: any, i: number) => {
+          console.log(`  ${colors.cyan}${i + 1}. ${char.name}${colors.reset}`);
+          console.log(`     Role: ${char.role || 'Not specified'}`);
+          console.log(`     Description: ${char.description}`);
+          if (char.age && char.age > 0) {
+            console.log(`     Age: ${char.age}`);
+          }
+          if (char.personality) {
+            console.log(`     Personality: ${char.personality}`);
+          }
+          if (char.backstory) {
+            console.log(`     Backstory: ${char.backstory}`);
+          }
+          console.log();
         });
+      }
 
-        const proceed = await this.console.confirm('\nProceed with character generation?');
+      // Check if conversation is complete
+      if (directorResponse.is_complete && directorResponse.characters && directorResponse.characters.length > 0) {
+        InteractiveLogger.success('🎬 Film concept is complete!');
+        console.log(`\n${colors.green}Next step: ${directorResponse.next_step}${colors.reset}\n`);
+
+        const proceed = await this.console.confirm('Proceed with character generation?');
         if (proceed) {
           conversationComplete = true;
         }
+      } else if (directorResponse.is_complete && (!directorResponse.characters || directorResponse.characters.length === 0)) {
+        InteractiveLogger.info('🎬 Plot is complete, but no characters generated yet.');
+        console.log(`\n${colors.yellow}Status: ${directorResponse.next_step}${colors.reset}\n`);
+        console.log(`${colors.cyan}Ask the director to generate characters for your film.${colors.reset}\n`);
+      } else {
+        console.log(`\n${colors.yellow}Status: ${directorResponse.next_step}${colors.reset}\n`);
       }
     }
   }
@@ -338,19 +371,48 @@ class InteractiveE2ETest {
   private async testCharacterGeneration() {
     InteractiveLogger.heading('👥 LEVEL 2: CHARACTER GENERATION');
 
-    const context = await this.getProjectContext();
-    const characters = context.characters || [];
+    // Get conversation context from Redis to get character metadata
+    const conversationId = `project_${this.results.projectId}`;
+    const contextResponse = await this.api.call('GET', `/api/director/conversations/${conversationId}`);
+
+
+    if (!contextResponse || !contextResponse.character_suggestions) {
+      InteractiveLogger.error('No conversation context found. Please complete the director conversation first.');
+      return;
+    }
+
+    const characters = contextResponse.character_suggestions || [];
+
+    if (characters.length === 0) {
+      InteractiveLogger.error('No characters found in context. Please complete the director conversation first.');
+      return;
+    }
+
+    InteractiveLogger.info(`Found ${characters.length} characters to generate`);
 
     for (const charData of characters) {
       InteractiveLogger.info(`Generating character: ${charData.name}`);
 
+      // Build a detailed prompt with all available character data
+      let characterPrompt = `${charData.name}: ${charData.description}`;
+      if (charData.role) characterPrompt += `. Role: ${charData.role}`;
+      if (charData.age && charData.age > 0) characterPrompt += `. Age: ${charData.age}`;
+      if (charData.personality) characterPrompt += `. Personality: ${charData.personality}`;
+      if (charData.backstory) characterPrompt += `. Backstory: ${charData.backstory}`;
+
       const jobResponse = await this.api.call('POST', '/api/jobs/character-generation', {
         project_id: this.results.projectId,
-        prompt: charData.description,
-        name: charData.name,
-        context: {}
+        prompt: characterPrompt,
+        context: {
+          plot: contextResponse.plot_outline || '',
+          character_metadata: charData
+        }
       });
 
+      if (!jobResponse.job_id) {
+        InteractiveLogger.error(`Failed to create job for character: ${charData.name}`);
+        continue;
+      }
       const jobResult = await this.monitor.waitForCompletion(jobResponse.job_id);
 
       if (jobResult.output_data?.character_id) {
@@ -361,11 +423,6 @@ class InteractiveE2ETest {
         this.results.characters.push(character);
         
         InteractiveLogger.success(`Character generated: ${character.name}`);
-        console.log('\n📝 Character Details:');
-        console.log(`  Name: ${character.name}`);
-        console.log(`  Description: ${character.description}`);
-        console.log(`  Personality: ${character.personality}`);
-        console.log(`  Age: ${character.age}`);
       }
     }
 
@@ -383,9 +440,12 @@ class InteractiveE2ETest {
             'Select character to view:',
             this.results.characters.map(c => c.name)
           );
-          const char = this.results.characters[charIndex];
+          const char = this.results.characters[charIndex]!;
           console.log('\n📝 Character Details:');
-          console.log(JSON.stringify(char, null, 2));
+          console.log(`  Name: ${char.name}`);
+          console.log(`  Description: ${char.description}`);
+          console.log(`  Personality: ${char.personality}`);
+          console.log(`  Age: ${char.age}`);
           break;
 
         case 1: // Edit character
@@ -402,50 +462,101 @@ class InteractiveE2ETest {
   private async testSceneGeneration() {
     InteractiveLogger.heading('🎬 LEVEL 3: SCENE GENERATION');
 
-    const context = await this.getProjectContext();
+    const projectResponse = await this.api.call('GET', `/api/projects/${this.results.projectId}`);
+
+    if (!projectResponse.plot) {
+      InteractiveLogger.error('No plot found in project. Please complete the director conversation first.');
+      return;
+    }
+
+    InteractiveLogger.info('Plot from director conversation:');
+    console.log(`\n${colors.cyan}${projectResponse.plot}${colors.reset}\n`);
     
-    // Generate scenes using AI
-    InteractiveLogger.info('Generating scenes based on plot and characters...');
+    // Generate multiple scenes in parallel
+    InteractiveLogger.info('Generating multiple scenes in parallel...');
     
-    const sceneJobResponse = await this.api.call('POST', '/api/jobs/scene-generation', {
-      project_id: this.results.projectId,
-      context: {
-        plot: context.plot,
-        characters: this.results.characters
-      }
-    });
-
-    const sceneJobResult = await this.monitor.waitForCompletion(sceneJobResponse.job_id);
-
-    if (sceneJobResult.output_data?.scenes) {
-      for (const sceneData of sceneJobResult.output_data.scenes) {
-        InteractiveLogger.info(`Creating scene: ${sceneData.title}`);
-
-        // Generate scene image
-        const imageJobResponse = await this.api.call('POST', '/api/jobs/image-generation', {
-          project_id: this.results.projectId,
-          prompt: sceneData.visual_description || sceneData.description,
-          type: 'scenes',
-          metadata: sceneData
-        });
-
-        const imageJobResult = await this.monitor.waitForCompletion(imageJobResponse.job_id);
-
-        if (imageJobResult.output_data?.scene_id) {
-          const scene = {
-            id: imageJobResult.output_data.scene_id,
-            ...sceneData
-          };
-          this.results.scenes.push(scene);
-
-          InteractiveLogger.success(`Scene created: ${scene.title}`);
-          console.log(`  📋 Concise Plot: ${scene.concise_plot}`);
-          console.log(`  🎥 Scene Order: ${scene.scene_order}`);
-        }
+    const numScenes = 3; // Generate 3 scenes in parallel
+    const scenePromises = [];
+    
+    for (let i = 0; i < numScenes; i++) {
+      const scenePromise = this.generateSingleScene(projectResponse.plot, i);
+      scenePromises.push(scenePromise);
+    }
+    
+    // Wait for all scenes to complete
+    const sceneResults = await Promise.allSettled(scenePromises);
+    
+    // Process results
+    let successCount = 0;
+    for (const result of sceneResults) {
+      if (result.status === 'fulfilled' && result.value) {
+        this.results.scenes.push(result.value);
+        successCount++;
+        InteractiveLogger.success(`Scene created: ${result.value.title}`);
+      } else {
+        InteractiveLogger.error('Failed to generate scene:', result.status === 'rejected' ? result.reason : 'Unknown error');
       }
     }
 
-    InteractiveLogger.success(`Generated ${this.results.scenes.length} scenes`);
+    InteractiveLogger.success(`Generated ${successCount} scenes successfully`);
+  }
+
+  private async generateSingleScene(plot: string, sceneIndex: number): Promise<Scene | null> {
+    try {
+      const sceneJobResponse = await this.api.call('POST', '/api/jobs/scene-generation', {
+        project_id: this.results.projectId,
+        scene_description: `Generate scene ${sceneIndex + 1} for the following plot: ${plot}`,
+        characters_context: JSON.stringify(this.results.characters),
+        plot_context: plot
+      });
+
+      if (!sceneJobResponse.job_id) {
+        InteractiveLogger.error(`Failed to create scene generation job for scene ${sceneIndex + 1}`);
+        return null;
+      }
+
+      const sceneJobResult = await this.monitor.waitForCompletion(sceneJobResponse.job_id);
+
+      // Handle the actual output structure from scene generation
+      if (sceneJobResult.output_data?.scene_id && sceneJobResult.output_data?.scene_data) {
+        const sceneData = sceneJobResult.output_data.scene_data;
+        const sceneTitle = sceneData.title || `Scene ${sceneIndex + 1}`;
+        
+        // Generate scene image using object-generation endpoint
+        const imageJobResponse = await this.api.call('POST', '/api/jobs/object-generation', {
+          project_id: this.results.projectId,
+          scene_id: sceneJobResult.output_data.scene_id,
+          prompt: sceneData.detailed_plot || sceneData.concise_plot,
+          object_type: 'scene',
+          environmental_context: sceneData.detailed_plot || sceneData.concise_plot,
+          context: sceneData
+        });
+
+        if (!imageJobResponse.job_id) {
+          InteractiveLogger.error(`Failed to create image job for scene: ${sceneTitle}`);
+          return null;
+        }
+
+        const imageJobResult = await this.monitor.waitForCompletion(imageJobResponse.job_id);
+
+        if (imageJobResult.output_data?.object_id) {
+          return {
+            id: sceneJobResult.output_data.scene_id,
+            title: sceneTitle,
+            description: sceneData.detailed_plot || sceneData.concise_plot,
+            concise_plot: sceneData.concise_plot,
+            detailed_plot: sceneData.detailed_plot,
+            dialogue: sceneData.dialogue,
+            scene_order: sceneData.scene_order || sceneIndex
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      InteractiveLogger.error(`Error generating scene ${sceneIndex + 1}:`, error);
+      return null;
+    }
   }
 
   private async testSceneAssets(scene: Scene) {
@@ -462,15 +573,21 @@ class InteractiveE2ETest {
     InteractiveLogger.info('Determining objects needed for scene...');
 
     // Use LLM to determine objects
-    const objectJobResponse = await this.api.call('POST', '/api/jobs/object-analysis', {
+    const objectJobResponse = await this.api.call('POST', '/api/jobs/object-generation', {
       project_id: this.results.projectId,
       scene_id: scene.id,
-      scene_description: scene.description,
+      prompt: scene.description,
+      object_type: 'scene_objects',
+      environmental_context: scene.description,
       context: {
         characters: this.results.characters
       }
     });
 
+    if (!objectJobResponse.job_id) {
+      InteractiveLogger.error('Failed to create object generation job');
+      return;
+    }
     const objectJobResult = await this.monitor.waitForCompletion(objectJobResponse.job_id);
     const objectsToGenerate = objectJobResult.output_data?.objects || [];
 
@@ -487,12 +604,16 @@ class InteractiveE2ETest {
         context: {}
       });
 
+      if (!jobResponse.job_id) {
+        console.error(`Failed to create object generation job for: ${objData.description}`);
+        return null;
+      }
       return this.monitor.waitForCompletion(jobResponse.job_id);
     });
 
     const objectResults = await Promise.all(objectPromises);
     const sceneObjects = objectResults
-      .filter(r => r.output_data?.object_id)
+      .filter(r => r && r.output_data?.object_id)
       .map(r => ({
         id: r.output_data.object_id,
         ...r.output_data.object_data
@@ -506,7 +627,7 @@ class InteractiveE2ETest {
     InteractiveLogger.info('Determining frames for scene...');
 
     // Use LLM to determine frames
-    const frameJobResponse = await this.api.call('POST', '/api/jobs/frame-analysis', {
+    const frameJobResponse = await this.api.call('POST', '/api/jobs/frame-generation', {
       project_id: this.results.projectId,
       scene_id: scene.id,
       scene_description: scene.description,
@@ -517,6 +638,10 @@ class InteractiveE2ETest {
       }
     });
 
+    if (!frameJobResponse.job_id) {
+      InteractiveLogger.error('Failed to create frame analysis job');
+      return;
+    }
     const frameJobResult = await this.monitor.waitForCompletion(frameJobResponse.job_id);
     const framesToGenerate = frameJobResult.output_data?.frames || [];
 
@@ -527,23 +652,28 @@ class InteractiveE2ETest {
       const frameData = framesToGenerate[i];
       InteractiveLogger.info(`Generating frame ${i + 1}/${framesToGenerate.length}`);
 
-      // Generate frame image
-      const imageJobResponse = await this.api.call('POST', '/api/jobs/image-generation', {
+      // Generate frame image using object-generation endpoint
+      const imageJobResponse = await this.api.call('POST', '/api/jobs/object-generation', {
         project_id: this.results.projectId,
+        scene_id: scene.id,
         prompt: frameData.veo3_prompt,
-        type: 'frames',
-        metadata: {
+        object_type: 'frame',
+        environmental_context: `Frame ${i + 1} of scene: ${scene.description}`,
+        context: {
           ...frameData,
-          scene_id: scene.id,
           frame_order: i
         }
       });
 
+      if (!imageJobResponse.job_id) {
+        InteractiveLogger.error(`Failed to create image job for frame ${i + 1}`);
+        continue;
+      }
       const imageJobResult = await this.monitor.waitForCompletion(imageJobResponse.job_id);
 
-      if (imageJobResult.output_data?.frame_id) {
+      if (imageJobResult.output_data?.object_id) {
         const frame = {
-          id: imageJobResult.output_data.frame_id,
+          id: imageJobResult.output_data.object_id,
           ...frameData,
           frame_order: i
         };
@@ -555,10 +685,13 @@ class InteractiveE2ETest {
           project_id: this.results.projectId,
           frame_id: frame.id,
           source_url: imageJobResult.output_data.image_url,
-          prompt: frame.veo3_prompt,
-          duration_seconds: frame.duration_constraint || 8
+          prompt: frame.veo3_prompt
         });
 
+        if (!videoJobResponse.job_id) {
+          InteractiveLogger.error('Failed to create video generation job');
+          continue;
+        }
         const videoJobResult = await this.monitor.waitForCompletion(videoJobResponse.job_id);
         
         if (videoJobResult.output_data?.video_url) {
@@ -572,10 +705,6 @@ class InteractiveE2ETest {
     InteractiveLogger.success(`Generated ${frames.length} frames with videos for scene`);
   }
 
-  private async getProjectContext() {
-    const response = await this.api.call('GET', `/api/projects/${this.results.projectId}`);
-    return response.context || {};
-  }
 
   private printSummary() {
     console.log('\n' + '='.repeat(60));
@@ -625,10 +754,13 @@ class InteractiveE2ETest {
       if (output.includes('Server started on')) {
         InteractiveLogger.success('Server started successfully');
       }
+      // Log all server output for debugging
+      console.log('🔍 [SERVER]', output.trim());
     });
 
     this.server.stderr.on('data', (data: Buffer) => {
-      console.error('Server error:', data.toString());
+      const error = data.toString();
+      console.error('❌ [SERVER ERROR]', error.trim());
     });
   }
 

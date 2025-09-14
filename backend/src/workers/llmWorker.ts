@@ -134,7 +134,6 @@ async function processSceneGeneration(job: Job) {
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
-    console.log(`Generating scene for project ${project_id}`);
 
     await updateJobStatus(job.id!, 'processing', 30);
 
@@ -195,7 +194,7 @@ Generate a scene that:
       }
     };
 
-    console.log(`Scene generated: ${scene.id}`);
+    console.log(`🎬 [SCENE GENERATION] Scene generated: ${scene.id}`);
     return result;
   } catch (error) {
     console.error(`Scene generation failed for job ${job.id}:`, error);
@@ -210,7 +209,6 @@ async function processFrameGeneration(job: Job) {
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
-    console.log(`Generating frame ${frame_index} for scene ${scene_id}`);
 
     // Parse referenced IDs to detect auto-context
     const { characterIds, objectIds } = await parseReferencedIds(scene_metadata.detailed_plot);
@@ -262,6 +260,7 @@ Also provide:
 
     const frame = await createFrame({
       project_id,
+      scene_id,
       metadata: {
         veo3_prompt: frameData.veo3_prompt,
         dialogue: frameData.dialogue,
@@ -286,7 +285,7 @@ Also provide:
       }
     };
 
-    console.log(`Frame generated: ${frame.id}`);
+    console.log(`🎬 [FRAME GENERATION] Frame generated: ${frame.id}`);
     return result;
   } catch (error) {
     console.error(`Frame generation failed for job ${job.id}:`, error);
@@ -353,6 +352,13 @@ async function triggerFrameGeneration(projectId: string, sceneId: string, sceneD
 }
 
 async function triggerVideoGeneration(projectId: string, frameId: string, frameData: any) {
+  const ENABLE_VIDEO_GENERATION = false;
+  
+  if (!ENABLE_VIDEO_GENERATION) {
+    console.log(`🎬 [VIDEO GENERATION] Skipped video generation for frame ${frameId} (disabled by flag)`);
+    return;
+  }
+
   const videoJob = {
     id: crypto.randomUUID(),
     project_id: projectId,
@@ -473,7 +479,6 @@ Aim for 3-8 frames per scene depending on complexity.`;
 async function generateMultipleScenes(job: Job, projectId: string, context: any) {
   await updateJobStatus(job.id!, 'processing', 10);
   
-  console.log(`Generating multiple scenes for project ${projectId}`);
   
   const prompt = `Based on the following plot and characters, generate a sequence of scenes for a short film.
 
@@ -519,7 +524,7 @@ Focus on key story beats and character moments.`;
 
   await updateJobStatus(job.id!, 'processing', 90);
   
-  console.log(`✅ Generated ${response.scenes.length} scenes`);
-  
+  console.log(`🎬 [SCENE GENERATION] Generated ${response.scenes.length} scenes`);
+
   return response;
 }

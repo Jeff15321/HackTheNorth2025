@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
 
 const IMAGE_MODEL = 'gemini-2.0-flash-preview-image-generation';
-const TEXT_MODEL = 'gemini-2.5-flash';
+const TEXT_MODEL = 'gemini-2.0-flash';
 
 const PROMPTS = {
   IMAGE_GENERATION: 'Generate a high-quality, detailed image based on this description: {prompt}',

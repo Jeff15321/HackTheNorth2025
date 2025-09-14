@@ -25,7 +25,7 @@ async function processVideoGeneration(job: Job) {
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
-    console.log(`🎬 Generating video: ${prompt.substring(0, 50)}...`);
+    console.log(`🎬 [VIDEO GENERATION] Generating video: ${prompt.substring(0, 50)}...`);
 
     const videoOptions: VideoGenerationOptions = {
       aspect_ratio: '16:9',
@@ -56,7 +56,7 @@ async function processVideoGeneration(job: Job) {
       generated_at: new Date().toISOString()
     };
 
-    console.log(`✅ Video generated successfully`);
+    console.log(`🎬 [VIDEO GENERATION] Video generated successfully`);
     return result;
   } catch (error) {
     console.error(`❌ Video generation failed for job ${job.id}:`, error);

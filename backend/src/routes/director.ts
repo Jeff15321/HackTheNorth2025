@@ -7,32 +7,58 @@ import {
   getConversationContext,
   createConversationMessage,
   getConversationMessages,
+  updateConversationContext,
   type ConversationContext
 } from '../utils/conversation';
+import { updateProject } from '../utils/database';
 
 const DirectorInitialResponseSchema = {
   type: SchemaType.OBJECT,
   properties: {
-    director_response: { type: SchemaType.STRING },
-    suggested_questions: {
+    response: { type: SchemaType.STRING },
+    plot_points: {
       type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
+      items: { type: SchemaType.STRING },
+      description: "Concise plot points in bullet form"
     },
-    character_suggestions: {
+    characters: {
       type: SchemaType.ARRAY,
       items: {
         type: SchemaType.OBJECT,
         properties: {
-          name: { type: SchemaType.STRING },
-          description: { type: SchemaType.STRING }
+          name: { 
+            type: SchemaType.STRING,
+            description: "Character's full name"
+          },
+          role: { 
+            type: SchemaType.STRING,
+            description: "Character's role in the story (protagonist, antagonist, etc.)"
+          },
+          description: { 
+            type: SchemaType.STRING,
+            description: "Physical and background description"
+          },
+          age: { 
+            type: SchemaType.NUMBER,
+            description: "Character's age in years"
+          },
+          personality: { 
+            type: SchemaType.STRING,
+            description: "Character's personality traits and motivations"
+          },
+          backstory: { 
+            type: SchemaType.STRING,
+            description: "Character's background story and history"
+          }
         },
-        required: ["name", "description"]
-      }
+        required: ["name", "role", "description", "age", "personality", "backstory"]
+      },
+      description: "Array of main characters for the film"
     },
-    plot_outline: { type: SchemaType.STRING },
+    is_complete: { type: SchemaType.BOOLEAN },
     next_step: { type: SchemaType.STRING }
   },
-  required: ["director_response", "suggested_questions", "character_suggestions", "plot_outline", "next_step"]
+  required: ["response", "plot_points", "characters", "is_complete", "next_step"]
 } as Schema;
 
 const PAGE_PROMPTS = {
@@ -71,132 +97,6 @@ const PAGE_PROMPTS = {
 };
 
 export async function directorRoutes(fastify: FastifyInstance) {
-  fastify.post('/api/director/initial', {
-    schema: {
-      tags: ['Director'],
-      summary: 'Start initial conversation with Director Agent for film concept development',
-      body: {
-        type: 'object',
-        properties: {
-          user_concept: {
-            type: 'string',
-            description: 'Initial film concept or idea from the user'
-          },
-          preferences: {
-            type: 'object',
-            properties: {
-              genre: { type: 'string' },
-              style: { type: 'string' },
-              duration: { type: 'string' },
-              complexity: { type: 'string', enum: ['simple', 'moderate', 'complex'] }
-            }
-          }
-        },
-        required: ['user_concept']
-      },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            conversation_id: { type: 'string' },
-            director_response: { type: 'string' },
-            suggested_questions: { type: 'array', items: { type: 'string' } },
-            character_suggestions: { type: 'array', items: { type: 'object' } },
-            plot_outline: { type: 'string' },
-            next_step: { type: 'string' },
-            function_calls: { type: 'array', items: { type: 'object' } }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            message: { type: 'string' }
-          }
-        }
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { user_concept, preferences } = request.body as {
-        user_concept: string;
-        preferences?: any;
-      };
-
-      const conversationId = crypto.randomUUID();
-
-      const systemPrompt = `You are a professional film director and creative consultant with years of experience in the industry. A user has approached you with an initial concept for a film they want to create.
-
-Your role is to:
-1. Enthusiastically respond to their concept
-2. Ask 2-3 focused clarifying questions to understand their vision better
-3. Suggest compelling character concepts that would serve the story
-4. Provide an initial plot outline structure
-5. Guide them toward the next steps in the filmmaking process
-
-Be creative, professional, and encouraging. Help them refine their concept into something production-ready.`;
-
-      const prompt = `User's initial concept: "${user_concept}"
-
-User preferences: ${JSON.stringify(preferences || {})}
-
-This is the very first interaction in our film development process. Welcome them warmly, respond to their concept with genuine enthusiasm, and help them begin developing their vision into a structured film project.`;
-
-      const directorResponse = await generateJSON<{
-        director_response: string;
-        suggested_questions: string[];
-        character_suggestions: Array<{ name: string; description: string }>;
-        plot_outline: string;
-        next_step: string;
-      }>(prompt, DirectorInitialResponseSchema, systemPrompt);
-
-      const response = {
-        conversation_id: conversationId,
-        director_response: directorResponse.director_response,
-        suggested_questions: directorResponse.suggested_questions,
-        character_suggestions: directorResponse.character_suggestions,
-        plot_outline: directorResponse.plot_outline,
-        next_step: 'character_planning',
-        function_calls: [
-          {
-            type: 'modal',
-            content: 'Director Agent activated! Ready to help develop your film concept.'
-          },
-          {
-            type: 'navigate',
-            target: '/characters'
-          }
-        ]
-      };
-
-      const conversationContext: ConversationContext = {
-        conversation_id: conversationId,
-        user_concept,
-        preferences,
-        director_response: response.director_response,
-        suggested_questions: response.suggested_questions,
-        character_suggestions: response.character_suggestions,
-        plot_outline: response.plot_outline,
-        next_step: response.next_step,
-        function_calls: response.function_calls,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        session_state: 'active'
-      };
-
-      await storeConversationContext(conversationContext);
-      console.log(`💾 New conversation started: ${conversationId} for concept: ${user_concept.substring(0, 50)}...`);
-
-      reply.send(response);
-    } catch (error: any) {
-      fastify.log.error('Director initial conversation failed:', error);
-      reply.code(500).send({
-        error: 'Director conversation failed',
-        message: error?.message || 'Unable to start conversation with Director Agent'
-      });
-    }
-  });
-
   fastify.post('/api/director/stream', {
     schema: {
       tags: ['Director'],
@@ -354,10 +254,16 @@ Provide guidance and any relevant function calls to help the user.
           properties: {
             conversation_id: { type: 'string' },
             user_concept: { type: 'string' },
-            preferences: { type: 'object' },
+            preferences: { type: 'object', additionalProperties: true },
             director_response: { type: 'string' },
             suggested_questions: { type: 'array', items: { type: 'string' } },
-            character_suggestions: { type: 'array', items: { type: 'object' } },
+            character_suggestions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: true  // Allow all character properties
+              }
+            },
             plot_outline: { type: 'string' },
             next_step: { type: 'string' },
             session_state: { type: 'string' },
@@ -489,11 +395,17 @@ Provide guidance and any relevant function calls to help the user.
           type: 'object',
           properties: {
             response: { type: 'string' },
-            context: { type: 'object' },
-            suggestions: {
+            plot_points: { type: 'array', items: { type: 'string' } },
+            characters: {
               type: 'array',
-              items: { type: 'string' }
-            }
+              items: {
+                type: 'object',
+                additionalProperties: true  // Allow all properties to pass through
+              }
+            },
+            is_complete: { type: 'boolean' },
+            next_step: { type: 'string' },
+            context_id: { type: 'string' }
           }
         }
       }
@@ -504,7 +416,23 @@ Provide guidance and any relevant function calls to help the user.
     // Get conversation history
     const conversationId = `project_${project_id}`;
     const messages = await getConversationMessages(conversationId);
-    const currentContext = await getConversationContext(conversationId) || context;
+    const existingContext = await getConversationContext(conversationId);
+
+    // Merge contexts - prefer existing context over passed context
+    const currentContext = existingContext || {
+      conversation_id: conversationId,
+      user_concept: '',
+      director_response: '',
+      suggested_questions: [],
+      character_suggestions: [],
+      plot_outline: '',
+      next_step: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      session_state: 'active',
+      project_id: project_id,
+      ...context
+    };
 
     // Build conversation history for AI
     const conversationHistory = messages.map(msg => {
@@ -516,9 +444,9 @@ Provide guidance and any relevant function calls to help the user.
       return '';
     }).filter(Boolean).join('\n');
 
-    const prompt = `
-You are an AI film director helping a user create their film. You have the following context about the project:
+    const systemPrompt = `You are a professional film director. Your job is to help develop the film concept.
 
+Current context:
 ${JSON.stringify(currentContext, null, 2)}
 
 Previous conversation:
@@ -526,95 +454,135 @@ ${conversationHistory}
 
 User's current message: ${message}
 
-Your task is to:
-1. Respond helpfully to the user's message
-2. Extract and update any relevant context (plot, characters, themes, etc.)
-3. Guide them towards having enough information to start generating content
+Your task:
+1. Respond to their message helpfully
+2. Generate plot points ONLY if they ask for plot/story
+3. Generate characters ONLY if they explicitly ask for characters OR when marking the concept as complete
+4. If generating characters, create 3-5 complete characters with ALL fields properly filled:
+   - name: Character's full name (must be a proper name like "Kaito Nakamura")
+   - role: Their role (must be one of: "Protagonist", "Antagonist", "Supporting")
+   - age: Their age as a number between 1-100 (e.g., 28, NOT 0)
+   - description: Physical appearance and background (at least 20 words)
+   - personality: Detailed personality traits and motivations (at least 20 words)
+   - backstory: Their background story and history (at least 20 words)
+5. Set is_complete=true only when you have both plot AND characters with all fields filled
+6. Be direct and production-focused
 
-When you have a clear plot and at least 2-3 characters defined, include them in the context.`;
+CRITICAL:
+- NEVER return age=0. Always provide a realistic age.
+- NEVER return empty strings for personality or backstory. Always provide detailed content.
+- When the user says they're done, if you have plot but no complete characters, generate them NOW.`;
 
+    
     const response = await generateJSON<{
       response: string;
-      context: any;
-      suggestions: string[];
+      plot_points: string[];
+      characters: Array<{ name: string; role: string; description: string; age: number; personality: string; backstory: string }>;
+      is_complete: boolean;
+      next_step: string;
     }>(
-      prompt,
-      {
-        type: SchemaType.OBJECT,
-        properties: {
-          response: { 
-            type: SchemaType.STRING,
-            description: "Your conversational response to the user"
-          },
-          context: {
-            type: SchemaType.OBJECT,
-            properties: {
-              plot: { 
-                type: SchemaType.STRING,
-                nullable: true,
-                description: "The main plot of the film"
-              },
-              characters: {
-                type: SchemaType.ARRAY,
-                nullable: true,
-                items: {
-                  type: SchemaType.OBJECT,
-                  properties: {
-                    name: { type: SchemaType.STRING },
-                    description: { type: SchemaType.STRING }
-                  },
-                  required: ["name", "description"]
-                }
-              },
-              themes: {
-                type: SchemaType.ARRAY,
-                nullable: true,
-                items: { type: SchemaType.STRING }
-              },
-              setting: {
-                type: SchemaType.STRING,
-                nullable: true
-              }
-            }
-          },
-          suggestions: {
-            type: SchemaType.ARRAY,
-            items: { type: SchemaType.STRING },
-            description: "Suggested next questions or actions"
-          }
-        },
-        required: ["response", "context", "suggestions"]
-      }
+      message,
+      DirectorInitialResponseSchema,
+      systemPrompt
     );
 
-    // Store conversation
-    await createConversationMessage(conversationId, 'user', message, {});
-    await createConversationMessage(conversationId, 'assistant', response.response, {});
 
-    // Update context
-    const updatedContext = { ...currentContext, ...response.context };
-    
-    const contextToStore: ConversationContext = {
+    // Store conversation
+    await createConversationMessage(conversationId, 'user', message, { project_id });
+    await createConversationMessage(conversationId, 'assistant', response.response, { project_id });
+
+    // Update context with new information - accumulate rather than replace
+    // Only update characters if we got valid new ones with all fields
+    let updatedCharacters = currentContext.character_suggestions || [];
+    if (response.characters.length > 0 && response.characters[0] && response.characters[0].age > 0 && response.characters[0].personality) {
+      // We got fully formed characters, replace the list
+      updatedCharacters = response.characters.map(char => ({
+        name: char.name || 'Unknown',
+        description: char.description || 'No description',
+        role: char.role,
+        age: char.age,
+        personality: char.personality,
+        backstory: char.backstory
+      }));
+    } else if (response.characters.length > 0 && (!currentContext.character_suggestions || currentContext.character_suggestions.length === 0)) {
+      // We got partial characters and have no existing ones, store what we have
+      updatedCharacters = response.characters.map(char => ({
+        name: char.name || 'Unknown',
+        description: char.description || 'No description',
+        role: char.role || 'supporting'
+      }));
+    }
+    // Otherwise keep existing characters
+
+    const updatedContext: ConversationContext = {
+      ...currentContext,
       conversation_id: conversationId,
-      user_concept: updatedContext.plot || '',
+      user_concept: currentContext.user_concept || message,
       director_response: response.response,
-      suggested_questions: response.suggestions,
-      character_suggestions: updatedContext.characters || [],
-      plot_outline: updatedContext.plot || '',
-      next_step: 'Continue conversation',
+      suggested_questions: currentContext.suggested_questions || [],
+      character_suggestions: updatedCharacters,
+      plot_outline: response.plot_points.length > 0
+        ? response.plot_points.join('\n')
+        : currentContext.plot_outline || '',
+      next_step: response.next_step || 'Continue conversation',
       created_at: currentContext.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
       session_state: 'active',
       project_id: project_id
     };
-    
-    await storeConversationContext(contextToStore);
 
-    return reply.send({
+    // Store or update the context
+    if (existingContext) {
+      await updateConversationContext(conversationId, updatedContext);
+    } else {
+      await storeConversationContext(updatedContext);
+    }
+
+    // If conversation is complete, persist plot to Supabase
+    if (response.is_complete && updatedContext.plot_outline) {
+      // Update project with plot
+      await updateProject(project_id, {
+        plot: updatedContext.plot_outline
+      });
+      // Note: Characters will be created during the character generation phase with images
+    }
+
+    // Ensure characters are properly structured and not corrupted
+    const safeCharacters = (response.characters || []).map(char => ({
+      name: String(char.name || ''),
+      role: String(char.role || ''),
+      age: Number(char.age || 0),
+      description: String(char.description || ''),
+      personality: String(char.personality || ''),
+      backstory: String(char.backstory || '')
+    }));
+
+    // Return the actual accumulated context
+    // Use accumulated characters from context if the AI didn't return fully formed ones
+    let charactersToReturn = safeCharacters;
+    if ((!safeCharacters.length || (safeCharacters[0] && safeCharacters[0].age === 0)) && updatedCharacters.length > 0) {
+      // Use the accumulated characters from context
+      charactersToReturn = updatedCharacters.map((char: any) => ({
+        name: String(char.name || ''),
+        role: String(char.role || 'supporting'),
+        age: Number(char.age || 30), // Default age if not specified
+        description: String(char.description || ''),
+        personality: String(char.personality || ''),
+        backstory: String(char.backstory || '')
+      }));
+    }
+
+    const apiResponse = {
       response: response.response,
-      context: updatedContext,
-      suggestions: response.suggestions
-    });
+      plot_points: updatedContext.plot_outline ? updatedContext.plot_outline.split('\n') : [],
+      characters: charactersToReturn,
+      is_complete: response.is_complete || false,
+      next_step: response.next_step || 'Continue conversation',
+      context_id: conversationId // Add this so test knows where context is stored
+    };
+
+    
+    return reply.send(apiResponse);
   });
 
   fastify.get('/api/director/pages', {

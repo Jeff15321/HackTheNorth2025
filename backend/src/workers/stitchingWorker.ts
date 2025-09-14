@@ -29,14 +29,13 @@ async function processVideoStitching(job: Job) {
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
-    console.log(`🎞️  Stitching ${video_urls.length} videos for project ${project_id}`);
+    console.log(`🎞️  [VIDEO STITCHING] Stitching ${video_urls.length} videos for project ${project_id}`);
 
     // Download videos temporarily for stitching
     const videoPaths: string[] = [];
     
     for (let i = 0; i < video_urls.length; i++) {
       const videoUrl = video_urls[i];
-      console.log(`⬇️  Downloading video ${i + 1}/${video_urls.length}...`);
       
       const response = await fetch(videoUrl);
       if (!response.ok) {
@@ -59,7 +58,6 @@ async function processVideoStitching(job: Job) {
     const outputPath = join(tmpdir(), outputFilename);
     tempFiles.push(outputPath);
 
-    console.log(`🎞️  Starting FFmpeg stitching...`);
     await stitchVideos(videoPaths, outputPath, options);
 
     await updateJobStatus(job.id!, 'processing', 80);
@@ -90,7 +88,7 @@ async function processVideoStitching(job: Job) {
       stitched_at: new Date().toISOString()
     };
 
-    console.log(`✅ Video stitching completed: ${outputFilename} (${finalVideoBuffer.length} bytes)`);
+    console.log(`🎞️  [VIDEO STITCHING] Video stitching completed: ${outputFilename} (${finalVideoBuffer.length} bytes)`);
     return result;
   } catch (error) {
     // Clean up temporary files on error

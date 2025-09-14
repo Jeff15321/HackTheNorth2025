@@ -5,6 +5,9 @@ interface CharacterSuggestion {
   name: string;
   description: string;
   role?: string;
+  age?: number;
+  personality?: string;
+  backstory?: string;
 }
 
 interface FunctionCall {
@@ -82,9 +85,21 @@ export async function storeConversationContext(context: ConversationContext): Pr
     storeData.project_id = context.project_id;
   }
 
-  await redis.hSet(key, storeData);
-  await redis.expire(key, CONVERSATION_TTL);
-  await redis.sAdd(CONVERSATION_INDEX_KEY, context.conversation_id);
+  try {
+    console.log('🔍 [REDIS] Storing conversation context:', {
+      key,
+      dataKeys: Object.keys(storeData),
+      dataValues: Object.values(storeData).map(v => typeof v)
+    });
+    
+    await redis.hSet(key, storeData);
+    await redis.expire(key, CONVERSATION_TTL);
+    await redis.sAdd(CONVERSATION_INDEX_KEY, context.conversation_id);
+  } catch (error) {
+    console.error('🔍 [REDIS] Error storing conversation context:', error);
+    console.error('🔍 [REDIS] Store data:', storeData);
+    throw error;
+  }
 
   console.log(`Stored conversation context: ${context.conversation_id}`);
 }
@@ -106,7 +121,7 @@ export async function getConversationContext(conversationId: string): Promise<Co
 
   const sessionState = data.session_state as 'active' | 'completed' | 'abandoned';
 
-  if (!data.user_concept || !data.director_response || !data.plot_outline || !data.next_step || !data.created_at || !data.updated_at) {
+  if (!data.user_concept || !data.director_response || !data.next_step || !data.created_at || !data.updated_at) {
     throw new Error('Missing required conversation data fields');
   }
 
@@ -116,7 +131,7 @@ export async function getConversationContext(conversationId: string): Promise<Co
     director_response: data.director_response,
     suggested_questions: parsedSuggestedQuestions,
     character_suggestions: parsedCharacterSuggestions,
-    plot_outline: data.plot_outline,
+    plot_outline: data.plot_outline as any,
     next_step: data.next_step,
     created_at: data.created_at,
     updated_at: data.updated_at,
@@ -160,6 +175,13 @@ export async function storeConversationMessage(message: ConversationMessage): Pr
   const redis = getRedisClient();
   const key = `${CONVERSATION_MESSAGES_PREFIX}${message.conversation_id}`;
 
+  if (!message.conversation_id) {
+    throw new Error('conversation_id is required');
+  }
+  if (!message.timestamp) {
+    throw new Error('timestamp is required');
+  }
+
   const messageData = JSON.stringify(message);
   const timestamp = new Date(message.timestamp).getTime();
 
@@ -168,8 +190,16 @@ export async function storeConversationMessage(message: ConversationMessage): Pr
     throw new Error(`Invalid timestamp provided: ${message.timestamp}`);
   }
 
-  await redis.zAdd(key, { score: timestamp, value: messageData });
-  await redis.expire(key, CONVERSATION_TTL);
+  try {
+    await redis.zAdd(key, { score: timestamp, value: messageData });
+    await redis.expire(key, CONVERSATION_TTL);
+  } catch (error) {
+    console.error('Redis zAdd error:', error);
+    console.error('Key:', key);
+    console.error('Score:', timestamp);
+    console.error('Value length:', messageData.length);
+    throw error;
+  }
 
   console.log(`Stored conversation message: ${message.id} for conversation ${message.conversation_id}`);
 }

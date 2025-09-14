@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { editImage, generateImage, generateCharacterDescription } from '../ai/gemini.js';
 import { updateJobStatus, queueConnection } from '../utils/queue.js';
 import { createCharacter, createObject, createFrame } from '../utils/database.js';
+import { uploadBase64Image, generateFileName, StorageConfigs } from '../utils/storage.js';
 
 const connection = queueConnection;
 
@@ -9,20 +10,13 @@ export function createImageWorkers() {
   const characterGenerationWorker = new Worker(
     'character-generation',
     async (job: Job) => {
-      console.log(`🚨 [WORKER DEBUG] ========================================`);
-      console.log(`🚨 [WORKER DEBUG] CHARACTER WORKER CALLED! Job: ${job.id}`);
-      console.log(`🚨 [WORKER DEBUG] ========================================`);
 
       try {
         const result = await processCharacterGeneration(job);
-        console.log(`🚨 [WORKER DEBUG] Job ${job.id} completed successfully!`);
-        console.log(`🚨 [WORKER DEBUG] Result keys:`, Object.keys(result));
-        console.log(`🚨 [WORKER DEBUG] ========================================`);
+        console.log(`👤 [CHARACTER GENERATION] Job ${job.id} completed successfully`);
         return result;
       } catch (error) {
-        console.error(`🚨 [WORKER DEBUG] Job ${job.id} FAILED!`);
-        console.error(`🚨 [WORKER DEBUG] Error:`, error);
-        console.error(`🚨 [WORKER DEBUG] ========================================`);
+        console.error(`👤 [CHARACTER GENERATION] Job ${job.id} failed:`, error);
         throw error;
       }
     },
@@ -50,10 +44,9 @@ export function createImageWorkers() {
 }
 
 async function processCharacterGeneration(job: Job) {
-  console.log(`👤 Processing character generation for job: ${job.id}`);
-  
-  const { project_id, prompt, context } = job.data;
-  
+  const { project_id, input_data } = job.data;
+  const { prompt, metadata } = input_data || {};
+
   if (!project_id) {
     throw new Error('Project ID is required for character generation');
   }
@@ -63,22 +56,30 @@ async function processCharacterGeneration(job: Job) {
 
   await updateJobStatus(job.id!, 'processing', 20);
 
-  // Generate character description using LLM
-  const characterData = await generateCharacterDescription(prompt, context?.plot || '');
+  // Generate character description using LLM - use the prompt which should have all info
+  const characterData = await generateCharacterDescription(prompt, '');
   
   await updateJobStatus(job.id!, 'processing', 50);
 
   // Generate character image
   const imageBuffer = await generateImage(prompt);
-  const base64Image = imageBuffer.toString('base64');
-  const imageUrl = `data:image/png;base64,${base64Image}`;
+
+  await updateJobStatus(job.id!, 'processing', 60);
+
+  // Upload image to Supabase storage
+  const fileName = generateFileName('character.png', `char_${Date.now()}`);
+  const uploadResult = await uploadBase64Image(
+    `data:image/png;base64,${imageBuffer.toString('base64')}`,
+    fileName,
+    StorageConfigs.character
+  );
 
   await updateJobStatus(job.id!, 'processing', 80);
 
-  // Create character in database with both metadata and image
+  // Create character in database with Supabase storage URL
   const character = await createCharacter({
     project_id,
-    media_url: imageUrl,
+    media_url: uploadResult.url,
     metadata: characterData
   });
 
@@ -87,13 +88,12 @@ async function processCharacterGeneration(job: Job) {
   return {
     type: 'character',
     character_id: character.id,
-    image_url: imageUrl,
+    image_url: uploadResult.url,
     character_data: characterData
   };
 }
 
 async function processImageGeneration(job: Job) {
-  console.log(`🎨 Processing image generation for job: ${job.id}`);
 
   try {
     await updateJobStatus(job.id!, 'processing', 10);
@@ -101,7 +101,7 @@ async function processImageGeneration(job: Job) {
     const { project_id, input_data } = job.data;
     const { prompt, type, metadata } = input_data;
 
-    console.log(`🎨 Generating ${type} image: ${prompt.substring(0, 50)}...`);
+    console.log(`🎨 [IMAGE GENERATION] Generating ${type} image: ${prompt.substring(0, 50)}...`);
 
     await updateJobStatus(job.id!, 'processing', 30);
 
@@ -112,8 +112,9 @@ async function processImageGeneration(job: Job) {
 
     await updateJobStatus(job.id!, 'processing', 70);
 
+    // Upload image to Supabase storage
     const base64Image = imageBuffer.toString('base64');
-    const imageUrl = `data:image/png;base64,${base64Image}`;
+    const dataUrl = `data:image/png;base64,${base64Image}`;
 
     await updateJobStatus(job.id!, 'processing', 90);
 
@@ -125,24 +126,28 @@ async function processImageGeneration(job: Job) {
       if (!metadata?.environmental_context) {
         throw new Error('Environmental context is required in metadata');
       }
-      
+
       const objectData = {
         type: metadata.type,
         description: prompt,
         environmental_context: metadata.environmental_context
       };
 
+      // Upload to Supabase storage
+      const fileName = generateFileName('object.png', `obj_${Date.now()}`);
+      const uploadResult = await uploadBase64Image(dataUrl, fileName, StorageConfigs.object);
+
       const object = await createObject({
         project_id,
         scene_id: metadata?.scene_id,
-        media_url: imageUrl,
+        media_url: uploadResult.url,
         metadata: objectData
       });
 
       return {
         type: 'object',
         object_id: object.id,
-        image_url: imageUrl,
+        image_url: uploadResult.url,
         object_data: objectData
       };
     } else if (type === 'frames') {
@@ -161,7 +166,7 @@ async function processImageGeneration(job: Job) {
       if (!metadata?.split_reason) {
         throw new Error('Split reason is required in metadata');
       }
-      
+
       const frameData = {
         veo3_prompt: metadata.veo3_prompt,
         dialogue: metadata.dialogue,
@@ -170,17 +175,21 @@ async function processImageGeneration(job: Job) {
         frame_order: metadata.frame_order
       };
 
+      // Upload to Supabase storage
+      const fileName = generateFileName('frame.png', `frame_${Date.now()}`);
+      const uploadResult = await uploadBase64Image(dataUrl, fileName, StorageConfigs.frame);
+
       const frame = await createFrame({
         project_id,
         scene_id: metadata?.scene_id,
-        media_url: imageUrl,
+        media_url: uploadResult.url,
         metadata: frameData
       });
 
       return {
         type: 'frame',
         frame_id: frame.id,
-        image_url: imageUrl,
+        image_url: uploadResult.url,
         frame_data: frameData
       };
     }
@@ -188,7 +197,7 @@ async function processImageGeneration(job: Job) {
     return {
       type: 'unknown',
       job_id: job.id,
-      image_url: imageUrl,
+      image_url: dataUrl, // fallback to data URL for unknown types
       message: 'Generated image but type not recognized'
     };
 
@@ -205,7 +214,7 @@ async function processImageEditing(job: Job) {
   try {
     await updateJobStatus(job.id!, 'processing', 10);
 
-    console.log(`✏️  Editing image: ${edit_prompt.substring(0, 50)}...`);
+    console.log(`✏️  [IMAGE EDITING] Editing image: ${edit_prompt.substring(0, 50)}...`);
 
     let sourceBuffer: Buffer;
 
@@ -226,21 +235,24 @@ async function processImageEditing(job: Job) {
 
     await updateJobStatus(job.id!, 'processing', 70);
 
+    // Upload edited image to Supabase storage
     const base64Image = editedBuffer.toString('base64');
-    const editedImageUrl = `data:image/png;base64,${base64Image}`;
+    const dataUrl = `data:image/png;base64,${base64Image}`;
+    const fileName = generateFileName('edited.png', `edit_${Date.now()}`);
+    const uploadResult = await uploadBase64Image(dataUrl, fileName, StorageConfigs.object); // Use object config for edited images
 
     await updateJobStatus(job.id!, 'processing', 90);
 
     const result = {
       type,
-      image_url: editedImageUrl,
+      image_url: uploadResult.url,
       edit_prompt,
       source_url,
       metadata,
       edited_at: new Date().toISOString()
     };
 
-    console.log(`✅ Image edited: ${type} (${editedBuffer.length} bytes)`);
+    console.log(`✏️  [IMAGE EDITING] Image edited: ${type} (${editedBuffer.length} bytes)`);
     return result;
   } catch (error) {
     console.error(`❌ Image editing failed for job ${job.id}:`, error);

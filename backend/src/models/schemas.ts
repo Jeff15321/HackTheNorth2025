@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+// URL validation for Supabase storage URLs
+const SupabaseUrlSchema = z.string().url().refine(
+  (url) => url.includes('supabase') || url.startsWith('data:'),
+  { message: "URL must be a Supabase storage URL or data URL" }
+);
+
 export const ProjectSchema = z.object({
   id: z.uuid(),
   title: z.string(),
@@ -19,7 +25,7 @@ export const CharacterMetadataSchema = z.object({
 export const CharacterSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().optional(),
+  media_url: SupabaseUrlSchema.optional(),
   metadata: CharacterMetadataSchema,
   created_at: z.string().datetime().optional()
 });
@@ -34,7 +40,7 @@ export const SceneMetadataSchema = z.object({
 export const SceneSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
-  media_url: z.string().optional(), // Allow both URLs and data URLs
+  media_url: SupabaseUrlSchema.optional(),
   metadata: SceneMetadataSchema
 });
 
@@ -48,7 +54,7 @@ export const ObjectSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
   scene_id: z.string().uuid().optional(),
-  media_url: z.string().optional(), // Allow both URLs and data URLs
+  media_url: SupabaseUrlSchema.optional(),
   metadata: ObjectMetadataSchema,
   created_at: z.string().datetime().optional()
 });
@@ -65,8 +71,27 @@ export const FrameSchema = z.object({
   id: z.string().uuid(),
   project_id: z.string().uuid(),
   scene_id: z.string().uuid().optional(),
-  media_url: z.string().optional(), // Allow both URLs and data URLs
+  media_url: SupabaseUrlSchema.optional(),
   metadata: FrameMetadataSchema
+});
+
+// Storage-related schemas
+export const StorageConfigSchema = z.object({
+  bucket: z.string(),
+  folder: z.string().optional()
+});
+
+export const UploadResultSchema = z.object({
+  url: z.string().url(),
+  path: z.string(),
+  size: z.number()
+});
+
+export const StorageUploadSchema = z.object({
+  buffer: z.instanceof(Buffer),
+  fileName: z.string(),
+  mimeType: z.string(),
+  config: StorageConfigSchema.optional()
 });
 
 export const JobStatusSchema = z.enum(['pending', 'processing', 'completed', 'failed']);
@@ -134,3 +159,6 @@ export type DirectorFunctionCall = z.infer<typeof DirectorFunctionCallSchema>;
 export type DirectorRequest = z.infer<typeof DirectorRequestSchema>;
 export type CreateProject = z.infer<typeof CreateProjectSchema>;
 export type CreateJob = z.infer<typeof CreateJobSchema>;
+export type StorageConfig = z.infer<typeof StorageConfigSchema>;
+export type UploadResult = z.infer<typeof UploadResultSchema>;
+export type StorageUpload = z.infer<typeof StorageUploadSchema>;

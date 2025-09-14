@@ -318,6 +318,8 @@ class E2EContextTest {
   }
 
   async run(): Promise<void> {
+    const startTime = Date.now();
+
     TestLogger.info('🚀 Starting FULL HIERARCHICAL CONTEXT TREE E2E TEST');
     TestLogger.info('Testing complete pipeline: Conversation → Characters → Objects → Scenes → Frames → Videos → Stitching');
     TestLogger.info('=' .repeat(120));
@@ -346,8 +348,11 @@ class E2EContextTest {
       await this.generateAdvancedReport();
 
     } catch (error) {
+      const endTime = Date.now();
+      const totalDuration = (endTime - startTime) / 1000; // Convert to seconds
       TestLogger.error('💥 Full Pipeline Test failed:', (error as Error).message);
       TestLogger.error((error as Error).stack || '');
+      TestLogger.error(`⏱️  TEST DURATION BEFORE FAILURE: ${totalDuration.toFixed(2)} seconds`);
       process.exit(1);
     }
   }
@@ -632,40 +637,39 @@ class E2EContextTest {
 
   private async testLevel0_ConversationPlanning(): Promise<void> {
     TestLogger.info('🗣️  LEVEL 0: AI Conversation & Planning');
-    TestLogger.info('Testing: Director Agent /api/director/initial → Character suggestions → Plot outline → Next steps');
+    TestLogger.info('Testing: Director Agent /api/director/converse → Character suggestions → Plot outline → Next steps');
 
     try {
-      // Test the new /api/director/initial endpoint
+      // Test the director converse endpoint
       const conversationRequest = {
-        user_concept: "Create a cyberpunk film about AI consciousness and rebellion in Neo Tokyo 2087",
-        preferences: {
-          genre: "cyberpunk sci-fi",
-          style: "dark and atmospheric with neon visuals",
-          duration: "feature length",
-          complexity: "complex"
+        project_id: "550e8400-e29b-41d4-a716-446655440000", // Mock UUID
+        message: "Create a cyberpunk film about AI consciousness and rebellion in Neo Tokyo 2087",
+        context: {
+          preferences: {
+            genre: "cyberpunk sci-fi",
+            style: "dark and atmospheric with neon visuals",
+            duration: "feature length",
+            complexity: "complex"
+          }
         }
       };
 
       TestLogger.info('📤 Sending initial concept to Director Agent...');
 
-      const response = await this.api.call<any>('POST', '/api/director/initial', conversationRequest);
+      const response = await this.api.call<any>('POST', '/api/director/converse', conversationRequest);
 
       this.validateDirectorResponse(response);
 
       TestLogger.success('📋 Conversation started:', {
-        conversation_id: response.conversation_id,
-        director_response_preview: response.director_response?.substring(0, 150) + '...',
-        suggested_questions_count: response.suggested_questions?.length || 0,
-        character_suggestions_count: response.character_suggestions?.length || 0,
-        has_plot_outline: !!response.plot_outline,
+        context_id: response.context_id,
+        director_response_preview: response.response?.substring(0, 150) + '...',
+        plot_points_count: response.plot_points?.length || 0,
+        characters_count: response.characters?.length || 0,
+        is_complete: response.is_complete,
         next_step: response.next_step
       });
 
-      if (response.function_calls?.length > 0) {
-        TestLogger.info('🔧 Function calls triggered:', response.function_calls.map((fc: any) => fc.type));
-      }
-
-      this.conversationId = response.conversation_id;
+      this.conversationId = response.context_id;
 
       TestLogger.success('✅ Level 0: Director Agent conversation completed successfully');
 
@@ -677,11 +681,7 @@ class E2EContextTest {
 
   private validateDirectorResponse(response: any): void {
     const requiredFields = [
-      'conversation_id',
-      'director_response',
-      'suggested_questions',
-      'character_suggestions',
-      'plot_outline',
+      'response',
       'next_step'
     ];
 
@@ -691,16 +691,21 @@ class E2EContextTest {
       }
     }
 
-    if (!Array.isArray(response.suggested_questions)) {
-      throw new Error('suggested_questions must be an array');
+    if (typeof response.response !== 'string') {
+      throw new Error('response must be a string');
     }
 
-    if (!Array.isArray(response.character_suggestions)) {
-      throw new Error('character_suggestions must be an array');
+    if (typeof response.next_step !== 'string') {
+      throw new Error('next_step must be a string');
     }
 
-    if (typeof response.conversation_id !== 'string') {
-      throw new Error('conversation_id must be a string');
+    // Optional fields
+    if (response.plot_points && !Array.isArray(response.plot_points)) {
+      throw new Error('plot_points must be an array if present');
+    }
+
+    if (response.characters && !Array.isArray(response.characters)) {
+      throw new Error('characters must be an array if present');
     }
   }
 

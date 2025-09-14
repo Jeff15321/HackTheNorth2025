@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { CreateProjectSchema } from '../models/schemas.js';
-import { createProject, getProject, updateProject } from '../utils/database.js';
-import { getConversationContext } from '../utils/conversation.js';
+import { createProject, getProject, updateProject, getDatabase } from '../utils/database.js';
 
 export async function projectRoutes(fastify: FastifyInstance) {
   const projectsSchema = {
@@ -79,7 +78,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
             summary: { type: 'string' },
             plot: { type: 'string' },
             created_at: { type: 'string', format: 'date-time' },
-            updated_at: { type: 'string', format: 'date-time' }
+            updated_at: { type: 'string', format: 'date-time' },
+            context: {
+              type: 'object',
+              additionalProperties: true
+            }
           }
         },
         404: {
@@ -105,13 +108,41 @@ export async function projectRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get conversation context
-      const conversationId = `project_${id}`;
-      const context = await getConversationContext(conversationId) || {};
-      
+      // Get characters from database, not Redis
+      const db = getDatabase();
+      const { data: characters, error: charError } = await db
+        .from('characters')
+        .select('*')
+        .eq('project_id', id);
+
+      if (charError) {
+        console.error('📁 [PROJECT] Error fetching characters:', charError);
+      }
+
+      console.log('📁 [PROJECT] Retrieved data for project:', id, {
+        hasProject: !!project,
+        hasPlot: !!project.plot,
+        characterCount: characters?.length || 0
+      });
+
+      // Format the context for the API response - use database data
+      const formattedContext = {
+        plot: project.plot || '',
+        characters: (characters || []).map((char: any) => ({
+          name: char.metadata?.name || '',
+          description: char.metadata?.description || '',
+          role: char.metadata?.role || 'supporting',
+          age: char.metadata?.age || 30,
+          personality: char.metadata?.personality || '',
+          backstory: char.metadata?.backstory || ''
+        })),
+        next_step: 'Character generation',
+        session_state: 'completed'
+      };
+
       reply.send({
         ...project,
-        context
+        context: formattedContext
       });
     } catch (error: any) {
       fastify.log.error('Error fetching project:', error);

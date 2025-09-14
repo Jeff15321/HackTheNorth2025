@@ -75,7 +75,7 @@ export async function jobRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { project_id, prompt, name } = request.body as any;
+    const { project_id, prompt, name, context } = request.body as any;
 
     const jobData = {
       id: crypto.randomUUID(),
@@ -88,7 +88,10 @@ export async function jobRoutes(fastify: FastifyInstance) {
         type: 'characters',
         width: 1024,
         height: 1024,
-        metadata: { name }
+        metadata: {
+          name: name || 'Unknown',
+          ...context?.character_metadata
+        }
       },
       output_data: {},
       created_at: new Date().toISOString(),
@@ -138,6 +141,55 @@ export async function jobRoutes(fastify: FastifyInstance) {
     };
 
     await addJob('scene-generation', jobData);
+
+    reply.status(201).send({ job_id: jobData.id });
+  });
+
+  fastify.post('/api/jobs/frame-generation', {
+    schema: {
+      ...jobsSchema,
+      summary: 'Create frame generation job',
+      body: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' },
+          scene_id: { type: 'string', format: 'uuid' },
+          scene_description: { type: 'string' },
+          scene_plot: { type: 'string' },
+          context: { type: 'object' }
+        },
+        required: ['project_id', 'scene_id']
+      },
+      response: {
+        201: { type: 'object', properties: { job_id: { type: 'string' } } }
+      }
+    }
+  }, async (request, reply) => {
+    const { project_id, scene_id, scene_description, scene_plot, context } = request.body as any;
+
+    const jobData = {
+      id: crypto.randomUUID(),
+      project_id,
+      type: 'frame-generation' as const,
+      status: 'pending' as const,
+      progress: 0,
+      input_data: {
+        scene_id,
+        scene_metadata: {
+          detailed_plot: scene_plot || scene_description,
+          concise_plot: scene_description,
+          dialogue: '',
+          duration: 8
+        },
+        scene_context: context || {},
+        frame_index: 0
+      },
+      output_data: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    await addJob('frame-generation', jobData);
 
     reply.status(201).send({ job_id: jobData.id });
   });

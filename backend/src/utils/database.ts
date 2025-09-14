@@ -149,6 +149,24 @@ export async function createScene(scene: Omit<Scene, 'id'>): Promise<Scene> {
   return data;
 }
 
+export async function updateScene(sceneId: string, updates: Partial<Omit<Scene, 'id'>>): Promise<Scene> {
+  const db = getDatabase();
+  const { data, error } = await db
+    .from('scenes')
+    .update(updates)
+    .eq('id', sceneId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('❌ Error updating scene:', error);
+    throw new Error(`Failed to update scene: ${error.message}`);
+  }
+
+  console.log(`🎬 Updated scene: ${data.id}`);
+  return data;
+}
+
 export async function getScenesByProject(projectId: string): Promise<Scene[]> {
   const db = getDatabase();
   const { data, error } = await db
